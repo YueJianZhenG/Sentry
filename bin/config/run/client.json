@@ -10,6 +10,6 @@
         "com/com.json"
     ],
     "path" : {
-        "cluster": "${WORK_DIR}/config/cluster/client.json"
+        "node": "${WORK_DIR}/config/node/client.json"
     }
 }

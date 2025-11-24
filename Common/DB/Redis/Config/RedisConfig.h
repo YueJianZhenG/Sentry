@@ -16,13 +16,23 @@ namespace redis
 		int ping = 15;
 		int count = 1;
 		int retry = 5; //重试时间(秒)
-		int timeout = 0;
 		bool debug = false;
 		int conn_count = 3;
 		std::string mq;
 		std::string sub;
         std::string script;
+		unsigned int timeout = 0;
 		std::vector<std::string> address;
+	public:
+		static void RegisterAllFields()
+		{
+			REGISTER_JSON_CLASS_FIELD(redis::Cluster, ping);
+			REGISTER_JSON_CLASS_FIELD(redis::Cluster, count);
+			REGISTER_JSON_CLASS_FIELD(redis::Cluster, retry);
+			REGISTER_JSON_CLASS_FIELD(redis::Cluster, debug);
+			REGISTER_JSON_CLASS_FIELD(redis::Cluster, script);
+			REGISTER_JSON_CLASS_MUST_FIELD(redis::Cluster, address);
+		}
     };
 
 	struct Config : public db::Url

@@ -1,0 +1,14 @@
+{
+    "/pay7xf/create" : {
+        "type" : "GET",
+        "async" : true,
+        "auth" : false,
+        "access" : 1,
+        "bind" : "Pay7xfService.Create",
+        "desc" : "创建订单",
+        "request" : {
+            "type" : "支付方式",
+            "user_id" : 0
+        }
+    }
+}

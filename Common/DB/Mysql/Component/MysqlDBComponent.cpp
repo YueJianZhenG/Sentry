@@ -14,7 +14,6 @@
 #include "Server/Config/CodeConfig.h"
 #include "DB/Common/SqlFactory.h"
 #include "Util/Tools/String.h"
-#include "Util/File/FileHelper.h"
 
 namespace acs
 {
@@ -23,9 +22,9 @@ namespace acs
 		this->mCount = 0;
 		this->mRetryCount = 0;
 		sql::RegisterObject();
-		db::Explain::RegisterFields();
-		mysql::Cluster::RegisterFields();
-		mysql::Explain::RegisterFields();
+		db::Explain::RegisterAllFields();
+		mysql::Cluster::RegisterAllFields();
+		mysql::Explain::RegisterAllFields();
 	}
 
 	bool MysqlDBComponent::Awake()
@@ -91,7 +90,7 @@ namespace acs
 			{
 				return false;
 			}
-			LOG_DEBUG("mysql client ({}) compile sql ok", iter->first)
+			LOG_BY_NAME(sql::LOG_MYSQL, "mysql client ({}) compile sql ok", iter->first)
 		}
 		return true;
 	}
@@ -106,7 +105,7 @@ namespace acs
 			{
 				return false;
 			}
-			LOG_INFO("create mysql table [{}] ok", name);
+			LOG_BY_NAME(sql::LOG_MYSQL, "create mysql table [{}] ok", name);
 			return true;
 		}
 		sql::Factory sqlFactory;
@@ -275,15 +274,12 @@ namespace acs
 		std::unique_ptr<mysql::Request> pingRequest
 				= std::make_unique<mysql::Request>(mysql::cmd::PING);
 
-		this->Run(pingRequest);
+		std::unique_ptr<mysql::Response> response = this->Run(pingRequest);
 		std::unique_ptr<json::w::Value> jsonObject = document.AddObject("mysql");
 		{
-			size_t sendByteCount = 0;
-			size_t recvByteCount = 0;
-			for (auto iter = this->mClients.begin(); iter != this->mClients.end(); iter++)
+			if(response->HasError() && !response->error.empty())
 			{
-				sendByteCount += iter->second->SendBufferBytes();
-				recvByteCount += iter->second->RecvBufferBytes();
+				jsonObject->Add("error", response->error.front());
 			}
 
 			jsonObject->Add("sum", this->mCount);
@@ -292,10 +288,6 @@ namespace acs
 			jsonObject->Add("free", this->mFreeClients.Size());
 			jsonObject->Add("wait", this->mMessages.size());
 			jsonObject->Add("ping", fmt::format("{}ms", timer1.GetMs()));
-
-			jsonObject->Add("send_memory", sendByteCount);
-			jsonObject->Add("recv_memory", recvByteCount);
-
 		}
 	}
 
@@ -326,9 +318,14 @@ namespace acs
 		std::unique_ptr<mysql::Response> response(res);
 		if (response->HasError())
 		{
+			size_t index = 0;
 			LOG_WARN("{}", request->ToString());
-			LOG_WARN("{}", response->ToString());
+			for(const std::string & error : response->error)
+			{
+				LOG_ERROR("[{}] => {}", ++index, error);
+			}
 		}
+#ifdef __DEBUG__
 		else
 		{
 			if (this->mConfig.explain.open && request->Count() == 1)
@@ -348,10 +345,11 @@ namespace acs
 				CONSOLE_LOG_DEBUG("[{}ms] response=>{}", request->GetCostTime(), response->ToString());
 			}
 		}
+#endif
 		int rpcId = request->GetRpcId();
 		if (rpcId > 0)
 		{
-			this->OnResponse(rpcId, std::move(response));
+			this->OnResponse(rpcId, response);
 		}
 	}
 
@@ -369,7 +367,7 @@ namespace acs
 					sqlLog->Content = fmt::format("[{}ms] {}\n", ms, sql);
 					{
 						sqlLog->Content = response1->contents.front();
-						logger->PushLog("mysql", std::move(sqlLog));
+						logger->PushLog("mysql", sqlLog);
 					}
 				}
 			}
@@ -493,10 +491,11 @@ namespace acs
 	std::unique_ptr<mysql::Response> MysqlDBComponent::Run(std::unique_ptr<mysql::Request>& request)
 	{
 		int rpcId = this->BuildRpcId();
+		unsigned int timeout = this->mConfig.timeout;
 		{
 			request->SetRpcId(rpcId);
 			this->Send(request);
-			return this->BuildRpcTask<MysqlTask>(rpcId)->Await();
+			return this->BuildRpcTask<MysqlTask>(rpcId, timeout)->Await();
 		}
 	}
 }

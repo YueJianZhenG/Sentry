@@ -17,6 +17,8 @@ namespace custom
 		AsioThread(const AsioThread && t) = delete;
 	public:
 		void Stop();
+		void ReStart();
+		void GetBacktrace(std::string & backtrace);
 		void Start(int id, const std::string & name);
 		Asio::Context & Context() { return mContext; }
 		inline int GetId() const { return this->mId; }
@@ -32,6 +34,11 @@ namespace custom
 		std::string mName;
 		std::thread mThread;
 		long long mLastTime;
+#ifdef __OS_WIN__
+		void * mThreadHandler;
+#else
+
+#endif
 		Asio::Context mContext;
 	};
 }

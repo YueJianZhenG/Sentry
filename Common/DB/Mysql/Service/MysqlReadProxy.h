@@ -20,7 +20,7 @@ namespace acs
 		int Func(const json::r::Document & request, rpc::Message & response);
 		int Like(const json::r::Document & request, rpc::Message & response);
 		int Count(const json::r::Document & request, rpc::Message & response);
-		int Execute(const json::r::Document & request, rpc::Message & response);
+		int Execute(const json::r::Document & request, rpc::Message & response); //执行预处理sql
 		int Distinct(const json::r::Document & request, rpc::Message & response);
 	public:
 		int Find(const json::r::Document & request, rpc::Message & response);

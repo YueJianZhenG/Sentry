@@ -227,13 +227,12 @@ namespace mongo
 		document1.Get("id", this->cursorID);
 		for(bson::r::Document & bsonDocument : results)
 		{
-			size_t count = 0;
-			std::unique_ptr<char> json;
+			wrap::string<true> json;
 			json::w::Document jsonWriter;
 			bsonDocument.WriterToJson(jsonWriter);
-			if(jsonWriter.Serialize(json, count))
+			if(jsonWriter.Serialize(json))
 			{
-				this->result.emplace_back(json.get(), count);
+				this->result.emplace_back(json.c_str(), json.size());
 			}
 		}
 		return true;

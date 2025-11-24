@@ -178,9 +178,9 @@ namespace acs
 					obj->Add("desc", methodConfig->desc);
 					obj->Add("method", methodConfig->type);
 					obj->Add("async", methodConfig->async);
+					obj->Add("access", methodConfig->access);
 					obj->Add("content", methodConfig->content);
 					obj->Add("request", methodConfig->request);
-					obj->Add("permission", methodConfig->permission);
 					obj->Add("bind", fmt::format("{}.{}", methodConfig->service, methodConfig->method));
 				}
 			}
@@ -223,13 +223,16 @@ namespace acs
 
 	int Admin::Info(const http::FromContent& request, json::w::Document& response)
 	{
-		std::unique_ptr<json::r::Document> result =
-				std::make_unique<json::r::Document>();
-		if (this->mApp->Call("NodeSystem.RunInfo", result) != XCode::Ok)
+		const std::string func("NodeSystem.RunInfo");
+		std::unique_ptr<json::r::Document> result = std::make_unique<json::r::Document>();
 		{
-			return XCode::Failure;
+			int code = this->mApp->Call(func, result);
+			if(code != XCode::Ok)
+			{
+				return code;
+			}
+			response.Add("data", *result);
 		}
-		response.Add("data", *result);
 		return XCode::Ok;
 	}
 
@@ -243,7 +246,7 @@ namespace acs
 		}
 		else
 		{
-			this->mActor->GetNodes(serverActors);
+			serverActors = this->mActor->GetNodes();
 			serverActors.emplace_back(this->mApp->GetNodeId());
 		}
 		std::string func("NodeSystem.RunInfo");

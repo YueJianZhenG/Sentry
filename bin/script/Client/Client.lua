@@ -31,8 +31,17 @@ function Main:Awake()
     end
 end
 
-function Main:OnStart()
-
+function Main:OnComplete()
+    --local client = require("net.client")
+    --local fd = client.Connect("127.0.0.1:7789")
+    --client.Call(fd, "GateSystem.Login", "token")
+    local t1 = time.ms()
+    for i = 1, 10000 do
+        timer.timeout(i * 1000, function()
+            --local t2 = time.ms() - t1
+            --log.Debug("index:{} ms:{:.2f}", i, t2 / 1000)
+        end)
+    end
 end
 
 local info = {
@@ -158,6 +167,35 @@ local start_pgsql = function()
     end
 end
 
+local sqlite_time = 0
+local sqlite_count = 0
+local start_sqlite = function()
+    local tab = "user_info_list"
+    sqlite_time = time_ms()
+    local url = str_format("%s/db/sqlite", host)
+    while true do
+
+        local filter1 = { user_id = 10000 }
+        local filter2 = { user_id = 10004 }
+        local filter3 = { user_id = 10005 }
+
+        http:Post(url, { func = "UpdateOne", args = { tab, filter1, { amount = 1000}}})
+        http:Post(url, { func = "UpdateOne", args = { tab, filter2, { amount = 1000}}})
+        http:Post(url, { func = "UpdateOne", args = { tab, filter3, { amount = 1000}}})
+
+        http:Post(url, { func = "FindOne", args = { tab, filter1 }})
+        http:Post(url, { func = "FindOne", args = { tab, filter2 }})
+        http:Post(url, { func = "FindOne", args = { tab, filter3 }})
+
+
+        sqlite_count = sqlite_count + 6
+        if time_ms() - sqlite_time >= 5000 then
+            print("[sqlite count] =>", sqlite_count)
+            sqlite_time = time_ms()
+        end
+    end
+end
+
 local mongo_time = 0
 local mongo_count = 0
 
@@ -204,18 +242,21 @@ local start_run_info = function()
     end
 end
 
-function Main:OnComplete()
-    for i = 1, 5 do
-        coroutine.start(start_ping)
-        coroutine.start(start_hello)
+--function Main:OnComplete()
+--    --for i = 1, 5 do
+--    --    coroutine.start(start_ping)
+--    --    coroutine.start(start_hello)
+--    --
+--    --    coroutine.start(start_redis)
+--    --    coroutine.start(start_mysql)
+--    --    coroutine.start(start_mongo)
+--    --    coroutine.start(start_pgsql)
+--    --    --coroutine.start(start_sqlite)
+--    --    coroutine.start(start_run_info)
+--    --end
+--end
 
-        coroutine.start(start_redis)
-        coroutine.start(start_mysql)
-        coroutine.start(start_mongo)
-        coroutine.start(start_pgsql)
-        coroutine.start(start_run_info)
-    end
-    coroutine.sleep(100)
-end
+
+
 
 return Main

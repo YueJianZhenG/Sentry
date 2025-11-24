@@ -5,6 +5,7 @@
 #include "Lib.h"
 #include "Util/Tools/StringStream.h"
 #include "Log/Common/CommonLogDef.h"
+#include "Lua/Engine/LuaInclude.h"
 
 #define LUA_LIB
 
@@ -13,6 +14,8 @@
 
 #include <cstring>
 #include <cfloat>
+
+#include "Util/Tools/String.h"
 
 typedef struct fmt_State
 {
@@ -616,7 +619,7 @@ static void fmt_parse(fmt_State* S, fmt_Spec* d)
 	++S->p;
 }
 
-static int fmt_format(fmt_State* S)
+static int fmt_format(fmt_State* S, bool push)
 {
 	lua_settop(S->L, fmt_value(S, 2));
 	luaL_buffinit(S->L, &S->B);
@@ -639,6 +642,10 @@ static int fmt_format(fmt_State* S)
 			fmt_dump(S, &d);
 		}
 	}
+	if(!push)
+	{
+		return 0;
+	}
 	luaL_pushresult(&S->B);
 	return 1;
 }
@@ -649,53 +656,49 @@ namespace lua
 {
 	int lfmt::format(lua_State* L)
 	{
-		size_t len;
-		fmt_State S;
-		S.p = luaL_checklstring(L, 1, &len);
-		S.e = S.p + len;
-		S.L = L;
-		S.idx = 1;
-		S.top = lua_gettop(L);
-		return fmt_format(&S);
+		size_t len = 0;
+		const char * str = luaL_checklstring(L, 1, &len);
+		{
+			fmt_State S;
+			S.p = str;
+			S.e = S.p + len;
+			S.L = L;
+			S.idx = 1;
+			S.top = lua_gettop(L);
+			return fmt_format(&S, true);
+		}
 	}
 
 	int lfmt::lprint(lua_State* L)
 	{
-		size_t size = 0;
 		lua_Debug luaDebug;
-		int count = lua_gettop(L);
+		static std::string fileInfo;
 		if (lua_getstack(L, 1, &luaDebug) > 0)
 		{
 			lua_getinfo(L, "Sl", &luaDebug);
-			std::string file = FormatFileLine(luaDebug.short_src, luaDebug.currentline);
-			lua_writestring(file.c_str(), file.size());
-			lua_writestring(" ", 1);
+			fileInfo = FormatFileLine(luaDebug.short_src, luaDebug.currentline);
 		}
-		for (int index = 1; index <= count; index++)
+
+		size_t len = 0;
+		const char * str = luaL_checklstring(L, 1, &len);
 		{
-			if(index > 1) {
-				lua_writestring("\t", 1);
-			}
-			switch (lua_type(L, index))
-			{
-				case LUA_TTABLE:
-				{
-					help::str::Stream result;
-					serializeTable(L, index, result);
-					const std::string& str = result.Serialize();
-					lua_writestring(str.c_str(), str.size());
-					break;
-				}
-				default:
-				{
-					const char* s = luaL_tolstring(L, index, &size);
-					lua_writestring(s, size);
-					break;
-				}
-			}
-			lua_pop(L, 1);
+			fmt_State S;
+			S.p = str;
+			S.e = S.p + len;
+			S.L = L;
+			S.idx = 1;
+			S.top = lua_gettop(L);
+			fmt_format(&S, false);
+			std::cout << fileInfo << ' ';
+#ifdef __OS_WIN__
+			static std::string content;
+			content.assign(S.B.b, S.B.n);
+			std::cout << help::text::Utf8ToGB2312(content);
+#else
+			std::cout.write(S.B.b, S.B.n);
+#endif
+			std::cout << std::endl << std::flush;
 		}
-		lua_writeline();
 		return 0;
 	}
 
@@ -717,9 +720,9 @@ namespace lua
 	int lfmt::deserialize(lua_State* L)
 	{
 		size_t size = 0;
-		std::string result = "return \n";
 		const char * str = luaL_checklstring(L, -1, &size);
 		{
+			std::string result = "return \n";
 			result.reserve(result.size() + size);
 			result.append(str, size);
 			luaL_dostring(L, result.c_str());
@@ -729,7 +732,9 @@ namespace lua
 
 	int lfmt::deserialize(lua_State* L, const std::string& lua)
 	{
-		std::string result = "return \n" + lua;
+		static std::string result;
+		result.assign("return \n");
+		result.append(lua.c_str(), lua.size());
 		luaL_dostring(L, result.c_str());
 		if(!lua_istable(L, -1))
 		{

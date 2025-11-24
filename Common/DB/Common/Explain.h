@@ -17,7 +17,7 @@ namespace db
 		inline bool HasCommand(const std::string & cmd) const {
 			return std::find(command.begin(), command.end(), cmd) != command.end();
 		}
-		inline static void RegisterFields()
+		inline static void RegisterAllFields()
 		{
 			REGISTER_JSON_CLASS_FIELD(Explain, open);
 			REGISTER_JSON_CLASS_FIELD(Explain, command);

@@ -1,0 +1,3 @@
+
+
+function printf(fmt, ...) end

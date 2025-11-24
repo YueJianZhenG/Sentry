@@ -22,8 +22,11 @@ namespace rpc
 		constexpr char subPublish = 8; //发布订阅消息
 		constexpr char logout = 9;     //退出消息
 		constexpr char client = 10; 	  //服务器发到客户端的消息
+
+		constexpr char close = 30; //关闭连接
+		constexpr char parameter = 31; //设置socket局部参数
 		// 自定义扩展
-        constexpr char Max = 127;
+        constexpr char Max = 32;
     };
 
 	namespace msg //协议格式
@@ -33,21 +36,22 @@ namespace rpc
 		constexpr char json = 2;
 		constexpr char text = 3; //不带长度
 		constexpr char ws = 4; //websocket格式
+		constexpr char opcode = 5; //长度 协议id 二进制 客户端专用
 	}
 
 
 	// rpc消息头
 	namespace Header
 	{
-		constexpr const char* func = "$func";
-		constexpr const char* code = "$code";
-		constexpr const char* sock_id = "$sock";
-		constexpr const char* client_sock_id = "$cli";
-		constexpr const char* forward_tar = "$tar";
-		constexpr const char* app_id = "$aid";
-		constexpr const char * from_addr = "$from_addr";
-		constexpr const char * id = "$id"; //actor id
-		constexpr const char * channel = "$channel"; //频道
+		const std::string func = "$func";
+		const std::string code = "$code";
+		const std::string sock_id = "$sock";
+		const std::string client_sock_id = "$cli";
+		const std::string forward_tar = "$tar";
+		const std::string app_id = "$aid";
+		const std::string from_addr = "$from_addr";
+		const std::string id = "$id";
+		const std::string channel = "$channel";
 	}
 
 	//协议类型
@@ -61,7 +65,7 @@ namespace rpc
 		constexpr char bson = 5;
 		constexpr char number = 6;
 
-		constexpr char error = 127; //错误
+		constexpr char error = 126; //错误
 
 		// 自定义扩展
 		constexpr char Max = std::numeric_limits<char>::max();
@@ -107,15 +111,15 @@ namespace rpc
 	public:
 		unsigned int Len = 0; //协议包长度
 		char type = rpc::type::none; //协议类型
-		char porto = rpc::proto::none; //使用的通信协议
+		char porto = rpc::proto::none; //使用 的通信协议
 		char source = rpc::source::none; //消息源
 		int rpcId = 0; // rpcId
 	};
 
-	constexpr int RPC_PACKET_LEN_BYTES = 3; //包长度占用字节
+	constexpr int RPC_PACKET_LEN_BYTES = 4; //包长度占用字节
 	constexpr int RPC_PACK_HEAD_LEN = RPC_PACKET_LEN_BYTES + sizeof(char) * 3 + sizeof(int);
-	constexpr size_t INNER_RPC_BODY_MAX_LENGTH = 1024 * 1024 * 2 - 128; //内网消息体最大字节
-	constexpr size_t OUTER_RPC_BODY_MAX_LENGTH = 1024 * 10; //外网消息体最大字节
+	constexpr size_t INNER_RPC_BODY_MAX_LENGTH = 1024 * 1024 - 128; //内网消息体最大字节
+	constexpr size_t OUTER_RPC_BODY_MAX_LENGTH = 1024 * 4; //外网消息体最大字节
 //#pragma pack()
 }
 

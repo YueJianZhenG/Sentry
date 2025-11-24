@@ -121,6 +121,7 @@ namespace mysql
 	{
 	public:
 		Response();
+		explicit Response(unsigned char code);
 	public:
 		void Clear() ;
 		int OnRecvMessage(std::istream &os, size_t size);
@@ -141,7 +142,7 @@ namespace mysql
 	public:
 		bool IsOk() const { return this->mPackageCode != mysql::PACKAGE_ERR; }
 		bool IsEof() const { return this->mPackageCode == mysql::PACKAGE_EOF; }
-		bool HasError() const { return this->mPackageCode == mysql::PACKAGE_ERR; }
+		bool HasError() const { return this->mPackageCode == mysql::PACKAGE_ERR || !this->error.empty(); }
 	private:
 		int OnMessage(const char * buffer, size_t size);
 		void ParseOkResponse(const char * buffer, size_t size);

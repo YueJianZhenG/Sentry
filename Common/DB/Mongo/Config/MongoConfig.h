@@ -24,6 +24,19 @@ namespace mongo
 		db::Explain explain;
 		int conn_count = 3; //重连次数
 		std::vector<std::string> address;
+    public:
+    	static void RegisterAllFields()
+    	{
+    		REGISTER_JSON_CLASS_FIELD(mongo::Cluster, log);
+    		REGISTER_JSON_CLASS_FIELD(mongo::Cluster, ping);
+    		REGISTER_JSON_CLASS_FIELD(mongo::Cluster, retry);
+    		REGISTER_JSON_CLASS_FIELD(mongo::Cluster, debug);
+    		REGISTER_JSON_CLASS_FIELD(mongo::Cluster, count);
+    		REGISTER_JSON_CLASS_FIELD(mongo::Cluster, auth);
+    		REGISTER_JSON_CLASS_FIELD(mongo::Cluster, explain);
+    		REGISTER_JSON_CLASS_FIELD(mongo::Cluster, conn_count);
+    		REGISTER_JSON_CLASS_FIELD(mongo::Cluster, address);
+    	}
     };
 
 	class Config : public db::Url

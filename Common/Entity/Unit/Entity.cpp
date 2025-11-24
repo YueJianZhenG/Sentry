@@ -46,6 +46,7 @@ namespace acs
 
 	size_t Entity::GetComponents(std::vector<Component*>& components) const
 	{
+		components.reserve(this->mSortComponents.size());
         for(const std::string & name : this->mSortComponents)
         {
             Component * component = this->GetComponentByName(name);
@@ -60,6 +61,7 @@ namespace acs
 	size_t Entity::GetComponents(std::vector<std::string>& components) const
 	{
 		components.clear();
+		components.reserve(this->mSortComponents.size());
 		components.insert(components.end(),
 			this->mSortComponents.begin(), this->mSortComponents.end());
         return components.size();
@@ -74,16 +76,16 @@ namespace acs
 	bool Entity::RemoveComponent(const std::string& name)
 	{
 		auto iter = this->mComponentMap.find(name);
-		if (iter != this->mComponentMap.end())
+		if (iter == this->mComponentMap.end())
 		{
-			Component * component = iter->second.get();
-            if(!this->OnDelComponent(component))
-            {
-                return false;
-            }
-			this->mComponentMap.erase(iter);
-			return true;
+			return false;
 		}
-		return false;
+		Component* component = iter->second.get();
+		if (!this->OnDelComponent(component))
+		{
+			return false;
+		}
+		this->mComponentMap.erase(iter);
+		return true;
 	}
 }// namespace Sentry

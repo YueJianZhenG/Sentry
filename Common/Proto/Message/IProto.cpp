@@ -8,15 +8,18 @@
 namespace tcp
 {
 	IProto::IProto()
-		: mStartTime(help::Time::NowMil())
 	{
-
+#ifdef __DEBUG__
+		this->mStartTime = help::Time::NowTimeMS;
+#endif
 	}
 
+#ifdef __DEBUG__
 	long long IProto::GetCostTime() const
 	{
-		return help::Time::NowMil() - this->mStartTime;
+		return help::Time::NowTimeMS - this->mStartTime;
 	}
+#endif
 }
 
 namespace tcp
@@ -34,6 +37,26 @@ namespace tcp
 		}
 		return help::Math::ToNumber(iter->second, v);
 	}
+
+	int IHeader::GetInt(const std::string& key, int def) const
+	{
+		auto iter = std::find_if(this->mHeader.begin(), this->mHeader.end(),
+				[&key](const std::pair<std::string, std::string>& item)
+				{
+					return item.first == key;
+				});
+		if (iter == this->mHeader.end())
+		{
+			return def;
+		}
+		int result = 0;
+		if(!help::Math::ToNumber(iter->second, result))
+		{
+			return def;
+		}
+		return result;
+	}
+
 
 	bool IHeader::Has(const std::string& k) const
 	{
@@ -69,7 +92,7 @@ namespace tcp
 		{
 			return false;
 		}
-		v = iter->second;
+		v.assign(iter->second);
 		return true;
 	}
 
@@ -93,9 +116,16 @@ namespace tcp
 		this->mHeader.emplace_back(k, std::to_string(v));
 	}
 
+	void IHeader::Add(const IHeader& header)
+	{
+		for(const std::pair<std::string, std::string> & iter : header.mHeader)
+		{
+			this->mHeader.emplace_back(iter);
+		}
+	}
+
 	void IHeader::Add(const std::string& k, long long v)
 	{
-
 		this->mHeader.emplace_back(k, std::to_string(v));
 	}
 
@@ -129,17 +159,16 @@ namespace tcp
 			return 0;
 		}
 		json::w::Document document;
-		for(auto iter = head->Begin(); iter != head->End(); iter++)
+		for(const auto & iter : head->GetValue())
 		{
-			document.Add(iter->first.c_str(), iter->second);
+			document.Add(iter.first.c_str(), iter.second);
 		}
-		size_t count = 0;
-		std::unique_ptr<char> json;
-		if(!document.Serialize(json, count))
+		wrap::string<true> json;
+		if(!document.Serialize(json))
 		{
 			return 0;
 		}
-		lua_pushlstring(L, json.get(), count);
+		lua_pushlstring(L, json.c_str(), json.size());
 		return 1;
 	}
 

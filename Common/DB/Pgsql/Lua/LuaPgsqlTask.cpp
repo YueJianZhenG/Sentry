@@ -56,7 +56,16 @@ namespace acs
 		lua_rawset(L, -3);
 	}
 
-	void LuaPgsqlTask::OnResponse(std::unique_ptr<pgsql::Response> response) noexcept
+	void LuaPgsqlTask::OnTimeout()
+	{
+		std::unique_ptr<pgsql::Response> response = std::make_unique<pgsql::Response>();
+		{
+			response->error.emplace_back("time out");
+			this->OnResponse(response);
+		}
+	}
+
+	void LuaPgsqlTask::OnResponse(std::unique_ptr<pgsql::Response>& response) noexcept
 	{
 		lua_rawgeti(this->mLua, LUA_REGISTRYINDEX, this->mRef);
 		lua_State* coroutine = lua_tothread(this->mLua, -1);

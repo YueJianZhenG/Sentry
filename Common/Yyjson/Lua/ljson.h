@@ -1,5 +1,6 @@
 #pragma once
 #include"Lua/Lib/Lib.h"
+#include"Core/Wrap/Wrap.h"
 #include"Yyjson/Src/yyjson.h"
 
 namespace lua
@@ -42,17 +43,15 @@ namespace lua
 
 		static bool read(lua_State* L, int inx, std::string& json);
 
-		static bool read(lua_State* L, int inx, std::unique_ptr<char> & json, size_t & count);
+		static bool read(lua_State* L, int inx, wrap::string<true> & json);
 
 		static bool read(lua_State* L, int inx, JsonValue & jsonValue);
 
 		static int decode(lua_State* L);
 
-		static bool write(lua_State* L, const char* buf, size_t len, bool numkeyable = false);
+		static bool write(lua_State* L, yyjson_val* val);
 
-		//static bool write(lua_State* L, yyjson_doc * val, bool numkeyable = false);
-
-		static bool write(lua_State* L, yyjson_val* val, bool numkeyable = false);
+		static bool write(lua_State* L, const char* buf, size_t len);
 
 	protected:
 		static bool is_array(lua_State* L, int index, bool emy_as_arr);
@@ -67,10 +66,10 @@ namespace lua
 
 		static void number_decode(lua_State* L, yyjson_val* val);
 
-		static void array_decode(lua_State* L, yyjson_val* val, bool numkeyable);
+		static void array_decode(lua_State* L, yyjson_val* val);
 
-		static void table_decode(lua_State* L, yyjson_val* val, bool numkeyable);
+		static void table_decode(lua_State* L, yyjson_val* val);
 
-		static void decode_one(lua_State* L, yyjson_val* val, bool numkeyable);
+		static void decode_one(lua_State* L, yyjson_val* val);
 	};
 }

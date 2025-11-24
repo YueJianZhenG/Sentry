@@ -233,25 +233,37 @@ namespace mysql
 	namespace field
 	{
 		// 整数类型
-		constexpr unsigned char MYSQL_TYPE_TINY = 0x01;    // TINYINT
-		constexpr unsigned char MYSQL_TYPE_SHORT = 0x02;    // SMALLINT
-		constexpr unsigned char MYSQL_TYPE_LONG = 0x03;    // INT
-		constexpr unsigned char MYSQL_TYPE_FLOAT = 0x04;    // FLOAT
-		constexpr unsigned char MYSQL_TYPE_DOUBLE = 0x05;    // DOUBLE
-		constexpr unsigned char MYSQL_TYPE_LONGLONG = 0x08;    // BIGINT
-		constexpr unsigned char MYSQL_TYPE_INT24 = 0x09;    // MEDIUMINT
-		constexpr unsigned char MYSQL_TYPE_ENUM = 0x0F;    // 集合类型（内部存储为整数)
+		constexpr unsigned char MYSQL_TYPE_TINY = 1;    // TINYINT
+		constexpr unsigned char MYSQL_TYPE_SHORT = 2;    // SMALLINT
+		constexpr unsigned char MYSQL_TYPE_LONG = 3;    // INT
+		constexpr unsigned char MYSQL_TYPE_FLOAT = 4;    // FLOAT
+		constexpr unsigned char MYSQL_TYPE_DOUBLE = 5;    // DOUBLE
+		constexpr unsigned char MYSQL_TYPE_NULL = 6;    // DOUBLE
+		constexpr unsigned char MYSQL_TYPE_TIMESTAMP = 7;    // DOUBLE
 
-		constexpr unsigned char MYSQL_TYPE_NULL = 0x06;    // NULL类型
-		constexpr unsigned char MYSQL_TYPE_YEAR = 0x0D;    // YEAR
-		constexpr unsigned char MYSQL_TYPE_VARCHAR = 0x15;    // VARBINARY
-		constexpr unsigned char MYSQL_TYPE_NEWDECIMAL = 0xf6;    // 高精度DECIMAL
-		constexpr unsigned char MYSQL_TYPE_JSON = 0xF5;    // JSON (MySQL 5.7+)
-
-		constexpr unsigned char MYSQL_TYPE_DATE = 0x0A;    // 日期类型（YYYY-MM-DD）
-		constexpr unsigned char MYSQL_TYPE_STRING = 0x16;    // 日期类型（YYYY-MM-DD）
-
-
+		constexpr unsigned char MYSQL_TYPE_LONGLONG = 8;
+		constexpr unsigned char MYSQL_TYPE_INT24 = 9;
+		constexpr unsigned char MYSQL_TYPE_DATE = 10;
+		constexpr unsigned char MYSQL_TYPE_TIME = 11;
+		constexpr unsigned char MYSQL_TYPE_DATETIME = 12;
+		constexpr unsigned char MYSQL_TYPE_YEAR = 13;
+		constexpr unsigned char MYSQL_TYPE_NEWDATE = 14;
+		constexpr unsigned char MYSQL_TYPE_VARCHAR = 15;
+		constexpr unsigned char MYSQL_TYPE_BIT = 16;
+		constexpr unsigned char MYSQL_TYPE_TIMESTAMP2 = 17;
+		constexpr unsigned char MYSQL_TYPE_DATETIME2 = 18;
+		constexpr unsigned char MYSQL_TYPE_TIME2 = 19;
+		constexpr unsigned char MYSQL_TYPE_JSON = 245;
+		constexpr unsigned char MYSQL_TYPE_NEWDECIMAL = 246;
+		constexpr unsigned char MYSQL_TYPE_ENUM = 247;
+		constexpr unsigned char MYSQL_TYPE_SET = 248;
+		constexpr unsigned char MYSQL_TYPE_TINY_BLOB = 249;
+		constexpr unsigned char MYSQL_TYPE_MEDIUM_BLOB = 250;
+		constexpr unsigned char MYSQL_TYPE_LONG_BLOB = 251;
+		constexpr unsigned char MYSQL_TYPE_BLOB = 252;
+		constexpr unsigned char MYSQL_TYPE_VAR_STRING = 253;
+		constexpr unsigned char MYSQL_TYPE_STRING = 254;
+		constexpr unsigned char MYSQL_TYPE_GEOMETRY = 255;
 	}
 }
 

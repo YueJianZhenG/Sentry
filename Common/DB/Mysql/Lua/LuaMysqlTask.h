@@ -14,7 +14,8 @@ namespace acs
 		~LuaMysqlTask() final;
 	public:
 		int Await();
-		void OnResponse(std::unique_ptr<mysql::Response> response) noexcept final ;
+		void OnTimeout() final;
+		void OnResponse(std::unique_ptr<mysql::Response>& response) noexcept final ;
 	private:
 		int mRef;
 		lua_State* mLua;

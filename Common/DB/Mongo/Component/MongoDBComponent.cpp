@@ -47,7 +47,7 @@ namespace acs
 		return lua_yield(this->mLua, 0);
 	}
 
-	void LuaMongoTask::OnResponse(std::unique_ptr<mongo::Response> response) noexcept
+	void LuaMongoTask::OnResponse(std::unique_ptr<mongo::Response>& response) noexcept
 	{
 		if (response != nullptr)
 		{
@@ -62,6 +62,11 @@ namespace acs
 			lua_pushnil(this->mLua);
 		}
 		Lua::Coroutine::Resume(this->mLua, 1);
+	}
+
+	void LuaMongoTask::OnTimeout()
+	{
+		Lua::Coroutine::Resume(this->mLua, 0);
 	}
 }
 
@@ -243,6 +248,7 @@ namespace acs
 				LOG_WARN("response => {}", errmsg);
 			}
 		}
+#ifdef __DEBUG__
 		else if (this->mConfig.explain.open && request->cmd.find("explain") == std::string::npos
 			&& this->mConfig.explain.HasCommand(request->cmd))
 		{
@@ -256,15 +262,16 @@ namespace acs
 			CoroutineComponent * coroutine = acs::App::Coroutine();
 			coroutine->Start(&MongoDBComponent::OnExplain, this, std::move(newRequest), ms);
 		}
+
 		if (this->mConfig.debug)
 		{
 			CONSOLE_LOG_INFO("[request] = {}", request->ToString());
 			CONSOLE_LOG_INFO("[response:{}] = {}", request->GetCostTime(), response->ToString());
 		}
-
+#endif
 		if (rpcId > 0)
 		{
-			this->OnResponse(rpcId, std::move(response));
+			this->OnResponse(rpcId, response);
 		}
 	}
 
@@ -301,27 +308,26 @@ namespace acs
 
 	void MongoDBComponent::OnExplain(std::unique_ptr<mongo::Request> & request, long long ms) noexcept
 	{
+		int length = 0;
+		const char * bson = request->document.Serialize(length);
 		std::unique_ptr<custom::LogInfo> sqlLog = std::make_unique<custom::LogInfo>();
 		{
-			json::r::Document readDocument;
-			if (readDocument.Decode(request->document.ToString(), YYJSON_READ_INSITU))
+			bson::r::Value bsonValue;
+			bson::r::Document readDocument(bson);
+			if(readDocument.Get("explain", bsonValue))
 			{
-				json::r::Value jsonValue;
-				if (readDocument.Get("explain", jsonValue))
-				{
-					sqlLog->Content.assign(fmt::format("[{}ms] ", ms));
-					sqlLog->Content.append(jsonValue.ToString());
-					sqlLog->Content.append("\n");
-				}
+				sqlLog->Content = fmt::format("[{}ms] ", ms);
+				sqlLog->Content.append(bsonValue.ToString());
+				sqlLog->Content.append("\n");
 			}
 		}
-		LoggerComponent * logger = this->GetComponent<LoggerComponent>();
 		std::unique_ptr<mongo::Response> response = this->Run(request);
+		LoggerComponent * logger = this->GetComponent<LoggerComponent>();
 		if (response != nullptr)
 		{
 			sqlLog->Level = custom::LogLevel::None;
 			sqlLog->Content.append(response->ToString());
-			logger->PushLog("mongo", std::move(sqlLog));
+			logger->PushLog("mongo", sqlLog);
 		}
 	}
 
@@ -392,27 +398,21 @@ namespace acs
 			request->header.requestID = this->BuildRpcId();
 			request->document.Add("ping", 1);
 		}
-		this->Run(request);
+		std::unique_ptr<mongo::Response> response = this->Run(request);
 		std::unique_ptr<json::w::Value> data = document.AddObject("mongo");
 		{
-			size_t sendByteCount = 0;
-			size_t recvByteCount = 0;
-			for(auto iter = this->mClients.begin(); iter != this->mClients.end(); iter++)
+			if(!response->document.IsOk())
 			{
-				sendByteCount += iter->second->SendBufferBytes();
-				recvByteCount += iter->second->RecvBufferBytes();
+				std::string error;
+				response->document.Get("errmsg", error);
+				data->Add("error", error);
 			}
-
-
 			data->Add("retry", this->mRetryCount);
 			data->Add("sum", this->CurrentRpcCount());
 			data->Add("free", this->mFreeClients.Size());
 			data->Add("client", this->mClients.size());
 			data->Add("ping", fmt::format("{}ms", timer1.GetMs()));
 			data->Add("wait", this->AwaitCount() + this->mRequests.size());
-
-			data->Add("send_memory", sendByteCount);
-			data->Add("recv_memory", recvByteCount);
 		}
 	}
 }

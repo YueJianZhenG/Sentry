@@ -12,7 +12,7 @@ namespace acs
 	{
 	public:
 		virtual Actor * GetActor(long long id) = 0;
-		virtual int Broadcast(std::unique_ptr<rpc::Message> message, int & count) = 0;
+		virtual int Broadcast(std::unique_ptr<rpc::Message> & message) = 0;
 	};
 }
 

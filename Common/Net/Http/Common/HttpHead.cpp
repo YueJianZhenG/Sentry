@@ -1,9 +1,7 @@
 //
 // Created by yjz on 2022/10/27.
 //
-#include<sstream>
 #include"httpHead.h"
-#include"Util/Tools/Math.h"
 #include"Proto/Message/IProto.h"
 #include"Yyjson/Document/Document.h"
 #include "Util/Tools/String.h"
@@ -45,7 +43,7 @@ namespace http
 		this->mHeader.clear();
 	}
 
-	bool Head::KeepAlive() const
+	bool Head::IsKeepAlive() const
 	{
 		std::string type;
 		if(!this->Get("connection", type))
@@ -58,16 +56,20 @@ namespace http
 		return type.find(http::Header::KeepAlive) != std::string::npos;
 	}
 
-	void Head::SetKeepAlive(bool keep, int timeout)
+	void Head::SetKeepAlive(int timeout)
 	{
-		if(keep && timeout > 0)
+		if(timeout > 0)
 		{
 			this->Add("Keep-Alive", fmt::format("timeout={}", timeout));
-			this->Add(http::Header::Connection, http::Header::KeepAlive);
-			return;
 		}
+		this->Add(http::Header::Connection, http::Header::KeepAlive);
+	}
+
+	void Head::SetClose()
+	{
 		this->Add(http::Header::Connection, http::Header::Close);
 	}
+
 
     int Head::OnRecvMessage(std::istream& buffer, size_t size)
     {

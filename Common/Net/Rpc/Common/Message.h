@@ -34,23 +34,23 @@ namespace rpc
 	{
 	public:
 		Message() noexcept;
-		~Message() final = default;
+		~Message() final;
 	public:
 		int OnSendMessage(std::ostream& os) final;
 		int OnRecvMessage(std::istream& os, size_t size) final;
 	public:
-		bool IsOk();
-		int GetCode(int code = 1) const;
 		std::unique_ptr<Message> Clone() const;
 		inline Head& GetHead() { return this->mHead; }
-		inline Head& TempHead(){ return this->mTempHead;}
 		inline char GetNet() const{ return this->mNet;}
+		inline char MsgType() const { return this->mMsg; }
 		inline const Head& ConstHead() const{ return this->mHead;}
 		inline int GetRpcId() const{return this->mProtoHead.rpcId;}
 		inline char GetType() const { return this->mProtoHead.type;}
 		inline char GetProto() const { return this->mProtoHead.porto; }
 		inline char GetSource() const { return this->mProtoHead.source; }
 		inline ProtoHead & GetProtoHead() { return this->mProtoHead;}
+		inline unsigned short GetOpcode() const { return (unsigned short)this->mProtoHead.rpcId;}
+		inline int Code(int code = 1) const { return this->mHead.GetInt(rpc::Header::code, code); }
 	public:
 		void Init(const rpc::ProtoHead& protoHead);
 		inline void SetMsg(char type) { this->mMsg = type; }
@@ -61,15 +61,23 @@ namespace rpc
 		inline void SetProto(char proto) { this->mProtoHead.porto = proto; }
 		inline void SetSource(char source) { this->mProtoHead.source = source; }
 	public:
+		inline int GetTimeout() const { return this->mTimeout; }
+		inline void SetTimeout(int timeout) { this->mTimeout = timeout; }
+	public:
 		void Clear() final;
 		std::string ToString() final;
 		std::string* Body() { return &this->mBody; }
 		inline int SockId() const { return this->mSockId; }
 		inline const std::string& GetBody() const{ return this->mBody; }
 		inline void Append(const std::string& data){ this->mBody.append(data); }
+		inline void ClearHeadAndBody() { this->mHead.Clear(); this->mBody.clear(); }
+	public:
+		const std::string & GetAttach() const { return this->mAttach; }
+		inline void SetAttach(const std::string & str) { this->mAttach = str; }
 	public:
 		void SetError(const std::string& content);
 		void SetContent(const std::string& content);
+		void SetContent(const char* content, size_t count);
 		void SetContent(const json::w::Document & content);
 		void SetContent(char proto, const std::string& content);
 		void SetContent(char proto, const char* content, size_t count);
@@ -84,8 +92,9 @@ namespace rpc
 		char mMsg; //协议格式
 		Head mHead; //写入socket
 		int mSockId;
-		Head mTempHead; //不写入socket
+		int mTimeout;
 		std::string mBody;
+		std::string mAttach; //附加数据
 		rpc::ProtoHead mProtoHead;
 	};
 }
@@ -104,19 +113,25 @@ namespace rpc
 		virtual char GetNet() const noexcept = 0;
 		virtual int Connect(const std::string & address) { return 0; }
 		virtual int Send(int id, std::unique_ptr<rpc::Message> & message) noexcept = 0;
+		virtual void Broadcast(std::unique_ptr<rpc::Message> & message) noexcept { };
 	};
 
 	class IOuterSender //外网接口
 	{
 	public:
+		IOuterSender() = default;
+		virtual  ~IOuterSender() = default;
 		virtual char GetNet() const noexcept = 0;
-		virtual int Send(int id, std::unique_ptr<rpc::Message> & message) noexcept = 0;
 		virtual void Broadcast(std::unique_ptr<rpc::Message> & message) noexcept = 0;
+		virtual int Send(int id, std::unique_ptr<rpc::Message> & message) noexcept = 0;
+		//virtual int SendToPlayer(long long id, std::unique_ptr<rpc::Message> & message) noexcept = 0;
 	};
 
 	class IOuterMessage
 	{
 	public:
+		IOuterMessage() = default;
+		virtual  ~IOuterMessage() = default;
 		virtual int OnMessage(std::unique_ptr<rpc::Message> & message) noexcept = 0;
 	};
 }
@@ -148,7 +163,7 @@ namespace tcp
 			if (hasLength)
 			{
 				offset = rpc::RPC_PACKET_LEN_BYTES;
-				tcp::Data::Read(buffer, value.Len, rpc::RPC_PACKET_LEN_BYTES);
+				tcp::Data::Read(buffer, value.Len, rpc::RPC_PACKET_LEN_BYTES, false);
 			}
 			value.type = buffer[offset++];
 			value.porto = buffer[offset++];
@@ -166,7 +181,7 @@ namespace tcp
 			if (hasLength)
 			{
 				offset = rpc::RPC_PACKET_LEN_BYTES;
-				tcp::Data::Write(buffer, value.Len, rpc::RPC_PACKET_LEN_BYTES);
+				tcp::Data::Write(buffer, value.Len, rpc::RPC_PACKET_LEN_BYTES, false);
 			}
 
 			buffer[offset++] = value.type;

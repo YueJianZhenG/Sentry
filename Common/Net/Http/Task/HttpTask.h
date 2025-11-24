@@ -15,8 +15,9 @@ namespace acs
 		~HttpRequestTask() final = default;
 		explicit HttpRequestTask(int id) : IRpcTask<http::Response>(id) { }
     public:
+		void OnTimeout() final;
         inline std::unique_ptr<http::Response> Await() noexcept;
-		inline void OnResponse(std::unique_ptr<http::Response> response) noexcept final;
+		inline void OnResponse(std::unique_ptr<http::Response>& response) noexcept final;
 	private:
 		std::unique_ptr<http::Response> mData;
     };
@@ -27,9 +28,15 @@ namespace acs
 		return std::move(this->mData);
 	}
 
-	void HttpRequestTask::OnResponse(std::unique_ptr<http::Response> response) noexcept
+	void HttpRequestTask::OnResponse(std::unique_ptr<http::Response>& response) noexcept
 	{
 		this->mData = std::move(response);
+		this->ResumeTask();
+	}
+
+	inline void HttpRequestTask::OnTimeout()
+	{
+		this->mData = std::make_unique<http::Response>(HttpStatus::REQUEST_TIMEOUT);
 		this->ResumeTask();
 	}
 
@@ -39,14 +46,24 @@ namespace acs
 		explicit HttpCallbackTask(int id, std::function<void(std::unique_ptr<http::Response>&)> & cb)
 			: mCallback(cb), IRpcTask<http::Response>(id) { }
 	private:
-		inline void OnResponse(std::unique_ptr<http::Response> response) noexcept final;
+		void OnTimeout() final;
+		inline void OnResponse(std::unique_ptr<http::Response>& response) noexcept final;
 	private:
 		std::function<void(std::unique_ptr<http::Response>&)> mCallback;
 	};
 
-	inline void HttpCallbackTask::OnResponse(std::unique_ptr<http::Response> response) noexcept
+	inline void HttpCallbackTask::OnResponse(std::unique_ptr<http::Response>& response) noexcept
 	{
 		this->mCallback(response);
+	}
+
+	inline void HttpCallbackTask::OnTimeout()
+	{
+		std::unique_ptr<http::Response> response = std::make_unique<http::Response>();
+		{
+			response->SetCode(HttpStatus::REQUEST_TIMEOUT);
+			this->mCallback(response);
+		}
 	}
 }
 
@@ -60,7 +77,8 @@ namespace acs
         ~LuaHttpRequestTask() final;
     public:     
         int Await() noexcept;
-        void OnResponse(std::unique_ptr<http::Response> response) noexcept final;
+		void OnTimeout() final;
+        void OnResponse(std::unique_ptr<http::Response>& response) noexcept final;
     private:
         int mRef;
         lua_State * mLua;

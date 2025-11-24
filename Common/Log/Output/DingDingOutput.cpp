@@ -50,9 +50,9 @@ namespace custom
 			jsonObj->Add("file", log.File);
 			jsonObj->Add("time", help::Time::GetDateString());
 			jsonObj->Add("text", log.Content);
-			if(!log.Stack.empty())
+			if(log.Stack != nullptr)
 			{
-				jsonObj->Add("stack", log.Stack);
+				jsonObj->Add("stack", log.Stack->c_str(), log.Stack->size());
 			}
 		}
 #ifdef __ENABLE_OPEN_SSL__

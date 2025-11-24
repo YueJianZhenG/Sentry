@@ -12,12 +12,11 @@ namespace acs
         }
     }
 
-    bool TimeWheelLayer::AddTimer(unsigned int tick, long long timerId)
+    bool TimeWheelLayer::AddTimer(unsigned int tick, long long timerId, size_t & index)
 	{
 		if (tick >= this->mMin && tick < this->mMax)
 		{
-			unsigned int index = this->mMin == 0 ? tick : (tick - this->mMin) / this->mMin;
-
+			index = this->mMin == 0 ? tick : (tick - this->mMin) / this->mMin;
 			if (index + this->mCurIndex < this->mMaxCount)
 			{
 				index += this->mCurIndex;
@@ -33,12 +32,20 @@ namespace acs
 		return false;
 	}
 
-	std::queue<long long> & TimeWheelLayer::GetTimerQueue()
+	bool TimeWheelLayer::AddTimer(unsigned int tick, long long timerId)
 	{
-		if(this->mCurIndex >= this->mMaxCount)
+		size_t index = 0;
+    	return this->AddTimer(tick, timerId, index);
+	}
+
+
+	std::queue<long long> & TimeWheelLayer::GetTimerQueue(size_t & index)
+	{
+    	index = this->mCurIndex + 1;
+		if(index >= this->mTimerSlot.size())
 		{
 			this->mCurIndex = 0;
 		}
-		return this->mTimerSlot[this->mCurIndex++];
+		return this->mTimerSlot.at(this->mCurIndex++);
 	}
 }// namespace Sentry

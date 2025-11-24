@@ -11,9 +11,7 @@ namespace acs
 {
 	FileUpload::FileUpload()
 	{
-#ifdef __ENABLE_OPEN_SSL__
 		this->mOss = nullptr;
-#endif
 	}
 
 	bool FileUpload::Awake()
@@ -28,94 +26,45 @@ namespace acs
 
 	bool FileUpload::OnInit()
 	{
-		BIND_COMMON_HTTP_METHOD(FileUpload::File);
-#ifdef __ENABLE_OPEN_SSL__
 		BIND_COMMON_HTTP_METHOD(FileUpload::Oss);
+		BIND_COMMON_HTTP_METHOD(FileUpload::File);
+		BIND_COMMON_HTTP_METHOD(FileUpload::Proxy);
 		this->mOss = this->GetComponent<AliOssComponent>();
-#endif
 		return true;
 	}
 
-#ifdef __ENABLE_OPEN_SSL__
 
 	int FileUpload::Oss(const http::FromContent& request, json::w::Document & response)
 	{
-		std::string fileName;
-		int userId, uploadType = 0;
-		if(!request.Get(http::query::UserId, userId))
-		{
-			return XCode::CallArgsError;
-		}
-		if(!request.Get("type", uploadType))
-		{
-			return XCode::CallArgsError;
-		}
-
 		oss::Policy policy;
-		if(!request.Get("file", policy.file_type))
+		LOG_ERROR_CHECK_ARGS(request.Get("dir", policy.upload_dir))
+		LOG_ERROR_CHECK_ARGS(request.Get("name", policy.file_name))
+		LOG_ERROR_CHECK_ARGS(request.Get("type", policy.file_type))
 		{
-			return XCode::CallArgsError;
+			long long nowTime = help::Time::NowSec();
+			policy.expiration = nowTime + 30;
+			policy.max_length = 1024 * 1024 * 5;
+			policy.limit_type.emplace_back("image/png");
+			policy.limit_type.emplace_back("image/jpg");
+			policy.limit_type.emplace_back("image/jpeg");
+			policy.limit_type.emplace_back("application/json");
 		}
-		long long nowTime = help::Time::NowSec();
-		policy.limit_type.emplace_back("image/png");
-		policy.limit_type.emplace_back("image/jpg");
-		policy.limit_type.emplace_back("image/jpeg");
-		policy.expiration = help::Time::NowSec() + 30;
-		policy.file_name = fmt::format("{}-{}", userId, nowTime);
-		switch(uploadType)
+		oss::FromData ossFromData;
+		this->mOss->Sign(policy, ossFromData);
+		std::unique_ptr<json::w::Value> jsonValue = response.AddObject("data");
 		{
-			case upload::FILE_UPLOAD_ICON:
-			{
-				policy.max_length = 1024 * 500;
-				policy.upload_dir = "user-icon/";
-				break;
-			}
-			case upload::FILE_UPLOAD_CLUB_ICON:
-				policy.max_length = 1024 * 500;
-				policy.upload_dir = "club-icon/";
-				break;
-			case upload::FILE_UPLOAD_WX_CODE:
-				policy.max_length = 1024 * 1024;
-				policy.upload_dir = "club-wx_code/";
-				break;
-			case upload::FILE_SHARE_ICON:
-				policy.upload_dir = "share/";
-				policy.max_length = 1024 * 1024;
-				break;
-			case upload::FILE_VIDEO_RES:
-			{
-				policy.limit_type.clear();
-				policy.upload_dir = "video/";
-				policy.max_length = 1024 * 1024 * 50;
-				policy.limit_type.push_back("video/avi");
-				policy.limit_type.push_back("video/mp4");
-				break;
-			}
-			case upload::FILE_UPLOAD_ACTIVITY_RES:
-			{
-				int permission = 0;
-				policy.upload_dir = fmt::format("{}/", userId);
-				policy.file_name = std::to_string(this->mApp->MakeGuid());
-				if(!request.Get(http::query::Permission, permission))
-				{
-					return XCode::PermissionDenied;
-				}
-				if(permission < http::PermissCreator)
-				{
-					return XCode::PermissionDenied;
-				}
-				policy.max_length = 1024 * 1024 * 5;
-			}
-				break;
-			default:
-				return XCode::CallArgsError;
-		}
+			jsonValue->Add("name", ossFromData.fileName);
+			jsonValue->Add("policy", ossFromData.policy);
+			jsonValue->Add("OSSAccessKeyId", ossFromData.OSSAccessKeyId);
+			jsonValue->Add("success_action_status", "200");
+			jsonValue->Add("signature", ossFromData.signature);
+			jsonValue->Add("key", ossFromData.objectKey);
 
-		auto jsonData = response.AddObject("data");
-		this->mOss->Sign(policy, *jsonData);
+			jsonValue->Add("url", ossFromData.url);
+			jsonValue->Add("host", ossFromData.host);
+		}
 		return XCode::Ok;
 	}
-#endif
 
 	int FileUpload::File(const http::Request &request, http::Response &response)
 	{
@@ -135,6 +84,44 @@ namespace acs
 		const std::string& name = multiData->FileName();
 		const std::string url = fmt::format("{}/{}", this->mDoMain, name);
 		response.SetContent(http::Header::TEXT, url);
+		return XCode::Ok;
+	}
+
+	int FileUpload::Proxy(const http::Request& request, http::Response& response)
+	{
+		std::string contentType, name;
+		const http::FromContent & query = request.GetUrl().GetQuery();
+		LOG_ERROR_CHECK_ARGS(query.Get("name", name));
+		if(!request.ConstHeader().GetContentType(contentType))
+		{
+			return XCode::CallArgsError;
+		}
+		const http::Content * content = request.GetBody();
+		if(content == nullptr)
+		{
+			return XCode::Failure;
+		}
+		const http::FileContent * fileContent = content->To<const http::FileContent>();
+		if(fileContent == nullptr)
+		{
+			return XCode::Failure;
+		}
+		size_t pos = contentType.find('/');
+		if(pos == std::string::npos)
+		{
+			return XCode::Failure;
+		}
+		std::string id = this->mApp->NewUuid();
+		std::string type = contentType.substr(pos + 1);
+		const std::string & path = fileContent->Path();
+		std::string objectKey = fmt::format("{}/{}.{}", name, id, type);
+		std::unique_ptr<oss::Response> ossResponse = this->mOss->Upload(path, objectKey);
+		if(ossResponse == nullptr || ossResponse->code != HttpStatus::OK)
+		{
+			return XCode::Failure;
+		}
+		std::remove(path.c_str());
+		response.SetContent(http::Header::TEXT, ossResponse->url);
 		return XCode::Ok;
 	}
 }

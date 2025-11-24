@@ -27,7 +27,7 @@ namespace pgsql
 		std::string table;
 		std::vector<std::string> address;
 	public:
-		inline static void RegisterFields()
+		inline static void RegisterAllFields()
 		{
 			REGISTER_JSON_CLASS_FIELD(pgsql::Cluster, ping);
 			REGISTER_JSON_CLASS_FIELD(pgsql::Cluster, count);

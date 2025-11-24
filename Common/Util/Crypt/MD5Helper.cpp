@@ -15,7 +15,7 @@ namespace help
 
 	std::string md5::GetMd5(const char* input, size_t size)
 	{
-		char buffer[16] = { 0 };
+		char buffer[HASHSIZE] = { 0 };
 		::md5(input, (int)size, buffer);
 		return std::string(buffer, sizeof(buffer));
 	}
@@ -28,11 +28,16 @@ namespace help
 	std::string md5::GetHex(const char* input, size_t size)
 	{
 		std::ostringstream oss;
-		unsigned char digest[16] = { 0 };
+		unsigned char digest[HASHSIZE] = { 0 };
 		::md5(input, (long)size, (char *)digest);
-		for (int i = 0; i < 16; ++i) {
+		for (int i = 0; i < HASHSIZE; ++i) {
 			oss << std::hex << std::setw(2) << std::setfill('0') << (unsigned int)digest[i];
 		}
 		return oss.str();
+	}
+
+	bool md5::FileMd5(const std::string& path, std::string& md5)
+	{
+		return ::file_md5(path, md5);
 	}
 }

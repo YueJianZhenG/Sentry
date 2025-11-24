@@ -8,6 +8,7 @@
         "proto" : "string"
     },
     "NodeSystem.Find": {
+        "proto": "pb",
         "response": "com.type.json"
     },
     "NodeSystem.Ping": {
@@ -17,6 +18,7 @@
 
     },
     "NodeSystem.SetLogLevel" : {
+        "proto": "pb",
         "request" : "com.type.int32"
     },
     "NodeSystem.RunInfo": {

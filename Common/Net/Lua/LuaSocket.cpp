@@ -86,9 +86,28 @@ namespace lua
 					}
 					waitTaskSource->SetResults(lua::Status::SendError, code.message());
 				};
-				size_t size = 0;
-				const char* buff = luaL_checklstring(L, 2, &size);
-				asio::async_write(tcpClient->mSocket->Get(), asio::buffer(buff, size), callback);
+				std::ostream os(&tcpClient->mSendBuffer);
+				if(lua_isinteger(L, 2))
+				{
+					size_t size = 0;
+					unsigned int session = 0;
+					unsigned short opcode = (int)lua_tointeger(L, 2);
+					const char* buff = luaL_checklstring(L, 3, &size);
+					unsigned short length = sizeof(opcode) + size + sizeof(session);
+
+					os.write((char*)&length, sizeof(length));
+					os.write((char*)&session, sizeof(session));
+					os.write((char*)&opcode, sizeof(opcode));
+					os.write(buff, (std::streamsize)size);
+				}
+				else
+				{
+					size_t size = 0;
+					const char* buff = luaL_checklstring(L, 2, &size);
+					os.write(buff, (std::streamsize)size);
+				}
+
+				asio::async_write(tcpClient->mSocket->Get(), tcpClient->mSendBuffer, callback);
 			}
 			return waitTaskSource->Await();
 		}
@@ -236,8 +255,11 @@ namespace lua
 
 	int TcpSock::Query(lua_State* L)
 	{
+		size_t count = 0;
+		const char * str = luaL_checklstring(L, 1, &count);
+
+		std::string host(str, count);
 		std::vector<std::string> result;
-		std::string host(luaL_checkstring(L, 1));
 		if (help::Str::IsIpAddress(host))
 		{
 			result.emplace_back(host);
@@ -252,7 +274,7 @@ namespace lua
 			auto iter = resolver.resolve(query, code);
 			if(code.value() != Asio::OK)
 			{
-				luaL_error(L, "query : %s", code.message().c_str());
+				LOG_ERROR("query : {} =>{}", host, code.message());
 				return 0;
 			}
 			Asio::Resolver::iterator end;
@@ -276,8 +298,11 @@ namespace lua
 
 	int TcpSock::Connect(lua_State* L)
 	{
-		std::string host(luaL_checkstring(L, 1));
+		size_t count = 0;
+		const char * str = luaL_checklstring(L, 1, &count);
 		const int port = (int)luaL_checkinteger(L, 2);
+
+		std::string host(str, count);
 		Asio::Context& io = acs::App::Inst()->GetContext();
 		std::unique_ptr<lua::TcpClient> tcpClient = std::make_unique<lua::TcpClient>();
 		try
@@ -305,7 +330,7 @@ namespace lua
 		}
 		catch (const asio::system_error& code)
 		{
-			luaL_error(L, "connect : %s", code.what());
+			LOG_ERROR("connect : {} => {}", host, code.what());
 			return 0;
 		}
 	}

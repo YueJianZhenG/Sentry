@@ -73,7 +73,7 @@ namespace ssl
 				if (size > 0)
 				{
 					this->generateKeys(size);
-					this->saveKeysToFile(publicKeyFile, privateKeyFile);
+					return this->saveKeysToFile(publicKeyFile, privateKeyFile);
 				}
 				return false;
 			}

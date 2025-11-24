@@ -3,7 +3,7 @@
 		"type": "GET",
 		"async": true,
 		"auth": false,
-		"permission": 100,
+		"access": 100,
 		"bind": "Admin.Ping",
 		"desc": "Ping某个服务器进程",
 		"request": {
@@ -13,7 +13,7 @@
 	"/admin/stop": {
 		"type": "GET",
 		"async": true,
-		"permission": 100,
+		"access": 100,
 		"bind": "Admin.Stop",
 		"desc": "停止某个服务器进程",
 		"request": {
@@ -24,7 +24,7 @@
 		"type": "GET",
 		"async": true,
 		"auth": true,
-		"permission": 100,
+		"access": 100,
 		"bind": "Admin.AllInfo",
 		"desc": "查看所有服务器进程信息"
 	},
@@ -32,7 +32,7 @@
 		"type": "GET",
 		"auth": true,
 		"async": true,
-		"permission": 20,
+		"access": 20,
 		"bind": "Admin.Info",
 		"desc": "查看当前服务器进程信息"
 	},
@@ -46,7 +46,7 @@
 	"/admin/hotfix": {
 		"type": "GET",
 		"async": true,
-		"permission": 100,
+		"access": 100,
 		"Record": true,
 		"bind": "Admin.Hotfix",
 		"desc": "热更服务器",
@@ -74,7 +74,7 @@
 	"/admin/remove": {
 		"type": "GET",
 		"async": true,
-		"permission": 100,
+		"access": 100,
 		"Record": true,
 		"bind": "Admin.Remove",
 		"desc": "删除后台账号",
@@ -85,7 +85,7 @@
 	"/admin/register": {
 		"type": "POST",
 		"async": true,
-		"permission": 100,
+		"access": 100,
 		"Record": true,
 		"bind": "Admin.Register",
 		"content-type": "application/json",
@@ -94,7 +94,7 @@
 			"name": "",
 			"account": "",
 			"passwd": "",
-			"permission" : 0
+			"access" : 0
 		}
 	},
 	"/admin/find" : {
@@ -106,7 +106,7 @@
 	"/admin/update": {
 		"type": "POST",
 		"async": true,
-		"permission": 20,
+		"access": 20,
 		"bind": "Admin.Update",
 		"content-type": "application/json",
 		"desc": "修改账号信息",
@@ -117,7 +117,7 @@
 	},
 	"/admin/list": {
 		"type": "GET",
-		"permission": 20,
+		"access": 20,
 		"async": true,
 		"bind": "Admin.List",
 		"desc": "分页查看后台账号",
@@ -127,25 +127,25 @@
 	},
 	"/admin/rpc": {
 		"type": "GET",
-		"permission": 100,
+		"access": 100,
 		"bind": "Admin.RpcInterface",
 		"desc": "分页查看rpc接口"
 	},
 	"/admin/http": {
 		"type": "GET",
-		"permission": 20,
+		"access": 20,
 		"bind": "Admin.HttpInterface",
 		"desc": "分页查看http接口"
 	},
 	"/admin/menu": {
 		"type": "GET",
-		"permission": 20,
+		"access": 20,
 		"bind": "Admin.Menu",
 		"desc": "获取web菜单"
 	},
 	"/oss/request": {
 		"type": "GET",
-		"permission": 10,
+		"access": 10,
 		"record": false,
 		"bind": "Oss.request",
 		"desc": "申请oss信息"

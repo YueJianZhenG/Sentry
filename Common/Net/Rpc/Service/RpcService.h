@@ -22,23 +22,20 @@ namespace acs
 		RpcService();
 	protected:
 		bool LateAwake() final;
-		virtual bool OnInit() = 0; //注册rpc回调ls
+		virtual bool OnInit() = 0; //注册rpc回调
 
 	public:
-		Lua::LuaModule * GetLuaModule() { return this->mLuaModule; }
 		const std::string& GetServer() const { return this->mCluster; }
-		int Invoke(const RpcMethodConfig * config, std::unique_ptr<rpc::Message> & message) noexcept;
+		int Invoke(const RpcMethodConfig * config, std::unique_ptr<rpc::Message> & message);
 	private:
-		int CallLua(const RpcMethodConfig * config, rpc::Message & message) noexcept;
-		int WriterToLua(const RpcMethodConfig * config, rpc::Message & message) noexcept;
-		int AwaitCallLua(const RpcMethodConfig * config, rpc::Message & message) noexcept;
+		int CallLua(const RpcMethodConfig * config, rpc::Message & message);
+		int WriterToLua(const RpcMethodConfig * config, rpc::Message & message);
+		int AwaitCallLua(const RpcMethodConfig * config, rpc::Message & message);
 	protected:
-		inline ServiceMethodRegister& GetMethodRegistry() { return this->mMethodRegister; }
-	private:
 		std::string mCluster;
 		Lua::LuaModule * mLuaModule;
 		class ProtoComponent * mProto;
-		ServiceMethodRegister mMethodRegister;
+		ServiceMethodRegister mServiceRegister;
 	};
-#define BIND_RPC_METHOD(func) LOG_CHECK_RET_FALSE(this->GetMethodRegistry().Bind(GET_FUNC_NAME(#func), &func, rpc::Header::id ))
+#define BIND_RPC_METHOD(func) LOG_CHECK_RET_FALSE(this->mServiceRegister.Bind(GET_FUNC_NAME(#func), &func, rpc::Header::id ))
 }

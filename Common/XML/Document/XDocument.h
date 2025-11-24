@@ -15,12 +15,14 @@ namespace xml
 	{
 	public:
 		XElement(tinyxml2::XMLElement * element, tinyxml2::XMLDocument & doc);
-	public:
+	public:;
 		bool Get(const char * key, int & value) const;
 		bool Get(const char * key, double & value) const;
 		bool Get(const char * key, std::string & value) const;
 		bool Get(const char * key, std::unique_ptr<xml::XElement> & value) const;
 		bool Get(const char * key, std::vector<std::unique_ptr<xml::XElement>> & value) const;
+	public:
+		bool Next(const char * key, std::unique_ptr<xml::XElement> & value) const;
 	public:
 		bool GetAttribute(const char * key, int & value);
 		bool GetAttribute(const char * key, std::string & value);

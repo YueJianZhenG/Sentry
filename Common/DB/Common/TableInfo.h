@@ -8,6 +8,8 @@
 #include "Yyjson/Object/JsonObject.h"
 namespace sql
 {
+	const std::string LOG_MYSQL = "mysql";
+	const std::string LOG_PGSQL = "pgsql";
 	struct Field : public json::Object<Field>
 	{
 	public:

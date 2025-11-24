@@ -62,8 +62,10 @@ namespace lua
 
 	int Sqlite::Get(lua_State* L)
 	{
-		std::string value;
-		std::string key(luaL_checkstring(L, 1));
+		size_t count = 0;
+		const char * k = luaL_checklstring(L, 1, &count);
+
+		std::string key(k, count);
 		SqliteComponent * sqliteComponent = GetComponent();
 		std::unique_ptr<sqlite::Response> response = sqliteComponent->Invoke("local_data_select", key);
 		if(!response->ok || response->result.empty())
@@ -99,15 +101,17 @@ namespace lua
 
 	int Sqlite::Set(lua_State* L)
 	{
+		size_t count = 0;
+		const char * k = luaL_checklstring(L, 1, &count);
+
 		std::string value;
-		std::string key(luaL_checkstring(L, 1));
 		switch(lua_type(L, 2))
 		{
 			case LUA_TTABLE:
 			{
 				if(!yyjson::read(L, 2, value))
 				{
-					luaL_error(L, "cast json fail");
+					LOG_ERROR("lua table cast json fail");
 					return 0;
 				}
 				break;
@@ -124,10 +128,11 @@ namespace lua
 			}
 			default:
 			{
-				luaL_typeerror(L, 2, "string or table");
-				break;
+				LOG_ERROR("args must string or table");
+				return 0;
 			}
 		}
+		std::string key(k, count);
 		SqliteComponent * sqliteComponent = GetComponent();
 		lua_pushboolean(L, sqliteComponent->Set(key, value));
 		return 1;
@@ -135,19 +140,28 @@ namespace lua
 
 	int Sqlite::Del(lua_State* L)
 	{
-		std::string key(luaL_checkstring(L, 1));
-		SqliteComponent * sqliteComponent = GetComponent();
-		lua_pushboolean(L, sqliteComponent->Del(key));
+		size_t count = 0;
+		const char * k = luaL_checklstring(L, 1, &count);
+		{
+			std::string key(k, count);
+			SqliteComponent * sqliteComponent = GetComponent();
+			lua_pushboolean(L, sqliteComponent->Del(key));
+		}
 		return 1;
 	}
 
 	int Sqlite::SetTimeout(lua_State* L)
 	{
-		std::string key(luaL_checkstring(L, 1));
+		size_t count = 0;
+		const char * k = luaL_checklstring(L, 1, &count);
 		int timeout = (int)luaL_checkinteger(L, 2);
-		SqliteComponent * sqliteComponent = GetComponent();
-		lua_pushboolean(L, sqliteComponent->SetTimeout(key, timeout));
-		return 1;
+		{
+			std::string key(k, count);
+			SqliteComponent * sqliteComponent = GetComponent();
+			lua_pushboolean(L, sqliteComponent->SetTimeout(key, timeout));
+			return 1;
+		}
+
 	}
 
 	int Sqlite::Run(lua_State* L)
@@ -161,18 +175,23 @@ namespace lua
 
 	int Sqlite::Build(lua_State* L)
 	{
-		size_t count = 0;
-		std::string name(luaL_checkstring(L, 1));
+		size_t count, count2 = 0;
+		const char * str1 = luaL_checklstring(L, 1, &count2);
 		const char * sql = luaL_checklstring(L, 2, &count);
+
+		std::string name(str1, count2);
 		SqliteComponent * sqliteComponent = GetComponent();
-		bool result = sqliteComponent->Build(name, std::string(sql, count));
+		bool result = sqliteComponent->Build(name, sql, count);
 		lua_pushboolean(L, result);
 		return 1;
 	}
 
 	int Sqlite::Invoke(lua_State* L)
 	{
-		std::string name(luaL_checkstring(L, 1));
+		size_t count = 0;
+		const char * str = luaL_checklstring(L, 1, &count);
+
+		std::string name(str, count);
 		SqliteComponent * sqliteComponent = GetComponent();
 		return lua::WriteResponse(L, sqliteComponent->Invoke(name, L));
 	}

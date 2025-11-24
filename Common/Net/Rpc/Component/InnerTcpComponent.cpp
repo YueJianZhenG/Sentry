@@ -6,7 +6,7 @@
 #include"Network/Tcp/Socket.h"
 #include"DispatchComponent.h"
 #include"Server/Component/ThreadComponent.h"
-#include"Core/Event/IEvent.h"
+#include"Event/Base/IEvent.h"
 namespace acs
 {
 
@@ -41,7 +41,7 @@ namespace acs
 				{
 					this->mWaitCount++;
 				}
-				this->OnRequest(message);
+				this->mDispatch->OnMessage(message);
 				break;
 			case rpc::type::forward:
 				this->OnForward(message);
@@ -125,11 +125,18 @@ namespace acs
 	bool InnerTcpComponent::OnListen(tcp::Socket * socket) noexcept
 	{
 		int id = this->mNumPool.BuildNumber();
+		auto iter = this->mSessions.find(id);
+		while(iter != this->mSessions.end())
+		{
+			id = this->mNumPool.BuildNumber();
+			iter = this->mSessions.find(id);
+		}
 		Asio::Context & io = this->mApp->GetContext();
 		std::shared_ptr<rpc::InnerTcpClient> tcpSession = std::make_shared<rpc::InnerTcpClient>(id, this, false, io);
 		{
+
 			tcpSession->StartReceive(socket);
-			this->mClients.emplace(id, tcpSession);
+			this->mSessions.emplace(id, tcpSession);
 		}
 		return true;
 	}
@@ -140,7 +147,16 @@ namespace acs
 		if(iter != this->mClients.end())
 		{
 			this->mClients.erase(iter);
-			help::InnerLogoutEvent::Trigger(id);
+			help::InnerClientErrorEvent::Trigger(id);
+		}
+		else
+		{
+			iter = this->mSessions.find(id);
+			if(iter != this->mSessions.end())
+			{
+				this->mSessions.erase(iter);
+				help::InnerClientErrorEvent::Trigger(id);
+			}
 		}
 	}
 
@@ -151,7 +167,17 @@ namespace acs
 		{
 			iter->second->Close();
 			this->mClients.erase(iter);
-			help::InnerLogoutEvent::Trigger(id);
+			help::InnerClientErrorEvent::Trigger(id);
+		}
+		else
+		{
+			iter = this->mSessions.find(id);
+			if(iter != this->mSessions.end())
+			{
+				iter->second->Close();
+				this->mSessions.erase(iter);
+				help::InnerClientErrorEvent::Trigger(id);
+			}
 		}
     }
 
@@ -159,6 +185,11 @@ namespace acs
 	{
 		auto iter = this->mClients.find(id);
 		if(iter != this->mClients.end())
+		{
+			return iter->second.get();
+		}
+		iter = this->mSessions.find(id);
+		if(iter != this->mSessions.end())
 		{
 			return iter->second.get();
 		}
@@ -187,7 +218,7 @@ namespace acs
         rpc::InnerTcpClient * clientSession = this->GetClient(id);
 		if(clientSession == nullptr)
 		{
-			LOG_ERROR("not find id : {}", id);
+			LOG_ERROR("not find actor:{}", id);
 			return XCode::NotFoundServerRpcAddress;
 		}
         return clientSession->Send(message) ? XCode::Ok : XCode::SendMessageFail;
@@ -199,26 +230,24 @@ namespace acs
 		{
 			data->Add("wait", this->mWaitCount);
 			data->Add("client", this->mClients.size());
+			data->Add("session", this->mSessions.size());
 		}
     }
 
-	int InnerTcpComponent::OnRequest(std::unique_ptr<rpc::Message>& message) noexcept
+	void InnerTcpComponent::Broadcast(std::unique_ptr<rpc::Message>& message) noexcept
 	{
-		int code = this->mDispatch->OnMessage(message);
-		if (code != XCode::Ok)
+		auto iter = this->mSessions.begin();
+		for(; iter != this->mSessions.end(); iter++)
 		{
-//			const std::string& desc = CodeConfig::Inst()->GetDesc(code);
-//			LOG_ERROR("call {} code = {}", message->GetHead().GetStr(rpc::Header::func), desc);
-
-			if (message->GetRpcId() == 0)
+			if(iter->first >= SERVER_MAX_COUNT)
 			{
-				return XCode::DeleteData;
+				std::unique_ptr<rpc::Message> request = message->Clone();
+				{
+					request->SetSockId(iter->first);
+					request->SetType(rpc::type::broadcast);
+					iter->second->Send(request);
+				}
 			}
-			message->Body()->clear();
-			message->SetType(rpc::type::response);
-			message->GetHead().Add(rpc::Header::code, code);
-			return this->Send(message->SockId(), message);
 		}
-		return XCode::Ok;
 	}
 }// namespace Sentry

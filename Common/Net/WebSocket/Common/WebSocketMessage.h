@@ -34,6 +34,7 @@ namespace ws
 		Header mHeader;
 		char mMaskingKey[4];
 		std::string mMessage;
+		char mStatus;
 	};
 }
 

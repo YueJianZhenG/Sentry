@@ -6,7 +6,7 @@
 #define APP_WSCLIENTCOMPONENT_H
 #include"Rpc/Common/Message.h"
 #include"Entity/Component/Component.h"
-#include"WebSocket/Client/Client.h"
+#include"WebSocket/Client/WsClient.h"
 
 namespace acs
 {

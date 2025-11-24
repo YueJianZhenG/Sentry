@@ -23,7 +23,7 @@ namespace acs
         }
     }
 
-    void LuaHttpRequestTask::OnResponse(std::unique_ptr<http::Response> response) noexcept
+    void LuaHttpRequestTask::OnResponse(std::unique_ptr<http::Response>& response) noexcept
     {
         int count = 0;
         if(response != nullptr)
@@ -33,11 +33,21 @@ namespace acs
         Lua::Coroutine::Resume(this->mLua, count);
     }
 
+	void LuaHttpRequestTask::OnTimeout()
+	{
+		std::unique_ptr<http::Response> response = std::make_unique<http::Response>();
+		{
+			response->SetCode(HttpStatus::REQUEST_TIMEOUT);
+			response->WriteToLua(this->mLua);
+		}
+		Lua::Coroutine::Resume(this->mLua, 1);
+	}
+
     int LuaHttpRequestTask::Await() noexcept
     {
         if(this->mRef == 0)
         {
-            luaL_error(this->mLua, "not lua coroutine context yield failure");
+            LOG_ERROR("not lua coroutine context yield failure");
             return 0;
         }
         return lua_yield(this->mLua, 0);

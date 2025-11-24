@@ -5,13 +5,22 @@
 #ifndef APP_LUAHTTPSERVICE_H
 #define APP_LUAHTTPSERVICE_H
 #include"HttpService.h"
+
 namespace acs
 {
-    class LuaHttpService final : public HttpService
-    {
-    private:
-		bool OnInit() final { return this->GetLuaModule() != nullptr; }
-    };
+	class LuaHttpService final : public HttpService
+	{
+	private:
+		bool OnInit() final
+		{
+			if (this->mLuaModule == nullptr)
+			{
+				LOG_ERROR("not find lua http module => {}", this->GetName())
+				return false;
+			}
+			return true;
+		}
+	};
 }
 
 

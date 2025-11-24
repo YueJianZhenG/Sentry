@@ -1,12 +1,12 @@
 //
 // Created by leyi on 2024/2/22.
 //
+#include "Util/Crypt/Sign.h"
 #ifdef __ENABLE_OPEN_SSL__
 
 #include <openssl/rand.h>
 #include <openssl/pem.h>
 #include <openssl/evp.h>
-#include <openssl/bio.h>
 #include <openssl/rsa.h>
 #include <openssl/x509.h>
 #include <openssl/err.h>
@@ -21,7 +21,6 @@
 #include "WX/Crypt/WXBizDataCrypt.h"
 
 #include "Auth/Aes/Aes.h"
-#include "Core/System/System.h"
 #include "Util/Tools/TimeHelper.h"
 
 const std::string WE_CHAT_HOST = "https://api.mch.weixin.qq.com";
@@ -42,41 +41,23 @@ namespace wx
 		return randomString;
 	}
 
-	inline bool SignWithRSA(const std::string& data, const std::string& keyData, std::string& result)
-	{
-		BIO* bio = BIO_new_mem_buf(keyData.c_str(), (int)keyData.size());
-		if (bio == nullptr)
-		{
-			std::cerr << "Error creating BIO" << std::endl;
-			return false;
-		}
-		EVP_PKEY* privateKey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
-		BIO_free(bio);
-		if (privateKey == nullptr)
-		{
-			return false;
-		}
-		EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-		EVP_SignInit(ctx, EVP_sha256());
-		EVP_SignUpdate(ctx, data.c_str(), data.size());
-
-		unsigned int signatureLen = 0;
-		size_t size = EVP_PKEY_size(privateKey);
-		std::unique_ptr<unsigned char[]> signature = std::make_unique<unsigned char[]>(size);
-		{
-			EVP_SignFinal(ctx, signature.get(), &signatureLen, privateKey);
-			EVP_MD_CTX_free(ctx);
-			result.assign((char*)signature.get(), signatureLen);
-		}
-		return true;
-	}
-
 	inline std::string GetOrderOverTime(long long timestamp)
 	{
-		char str[100];
-		time_t t = (time_t)timestamp;
-		struct tm* pt = std::localtime(&t);
-		size_t size = strftime(str, sizeof(str), "%Y-%m-%dT%H:%M:%SZ", pt);
+		struct tm pt{};
+		char str[100] = { 0 };
+		time_t now = (time_t)timestamp;
+#ifdef __OS_WIN__
+		if(localtime_s(&pt, &now) != 0)
+		{
+			return "";
+		}
+#else
+		if(localtime_r(&now, &pt) != 0)
+		{
+			return "";
+		}
+#endif
+		size_t size = strftime(str, sizeof(str), "%Y-%m-%dT%H:%M:%SZ", &pt);
 		return { str, size };
 	}
 
@@ -368,18 +349,18 @@ namespace acs
 
 	std::unique_ptr<http::Request> WeChatComponent::NewRequest(const char* method, const std::string& url)
 	{
-		std::string output;
+		std::string sign;
 		std::string randStr = wx::RandomStr(32);
 		long long nowTime = help::Time::NowSec();
 		std::string str = fmt::format("{}\n{}\n{}\n{}\n\n", method, url, nowTime, randStr);
-		if (!wx::SignWithRSA(str, this->mConfig.pay.apiKey, output))
+		if(!help::sign::WithSHA256(str, this->mConfig.pay.apiKey, sign))
 		{
 			return nullptr;
 		}
+
 		std::string SHA256 = "WECHATPAY2-SHA256-RSA2048";
 		std::unique_ptr<http::Request> request1 = std::make_unique<http::Request>(method);
 		{
-			std::string sign = _bson::base64::encode(output);
 			std::string auth = fmt::format(
 					"{} mchid=\"{}\",nonce_str=\"{}\",timestamp=\"{}\",serial_no=\"{}\",signature=\"{}\"",
 					SHA256, this->mConfig.pay.mchId, randStr, nowTime, this->mConfig.pay.mchNumber, sign);
@@ -396,19 +377,19 @@ namespace acs
 	std::unique_ptr<http::Request> WeChatComponent::NewRequest(const std::string& url, json::w::Document& document)
 	{
 		std::string body;
-		std::string output;
+		std::string sign;
 		document.Serialize(&body);
 		std::string randStr = wx::RandomStr(32);
 		long long nowTime = help::Time::NowSec();
 		std::string str = fmt::format("POST\n{}\n{}\n{}\n{}\n", url, nowTime, randStr, body);
-		if (!wx::SignWithRSA(str, this->mConfig.pay.apiKey, output))
+		if(!help::sign::WithSHA256(str, this->mConfig.pay.apiKey, sign))
 		{
 			return nullptr;
 		}
+
 		std::string SHA256 = "WECHATPAY2-SHA256-RSA2048";
 		std::unique_ptr<http::Request> request1 = std::make_unique<http::Request>("POST");
 		{
-			std::string sign = _bson::base64::encode(output);
 			std::string auth = fmt::format(
 					"{} mchid=\"{}\",nonce_str=\"{}\",timestamp=\"{}\",serial_no=\"{}\",signature=\"{}\"",
 					SHA256, this->mConfig.pay.mchId, randStr, nowTime, this->mConfig.pay.mchNumber, sign);
@@ -621,7 +602,7 @@ namespace acs
 		const std::string package = fmt::format("prepay_id={}", prepay_id);
 		const std::string sign = fmt::format("{}\n{}\n{}\n{}\n",
 				this->mConfig.login.appId, nowTime, nonceStr, package);
-		if (!wx::SignWithRSA(sign, this->mConfig.pay.apiKey, paySign))
+		if (!help::sign::WithSHA256(sign, this->mConfig.pay.apiKey, paySign))
 		{
 			return false;
 		}
@@ -631,7 +612,7 @@ namespace acs
 		document->Add("nonceStr", nonceStr);
 		document->Add("appid", this->mConfig.login.appId);
 		document->Add("partnerid", this->mConfig.pay.mchId);
-		document->Add("sign", _bson::base64::encode(paySign));
+		document->Add("sign", paySign);
 		return true;
 	}
 

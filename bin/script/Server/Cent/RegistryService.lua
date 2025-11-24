@@ -24,7 +24,7 @@ function RegistryService:Add(request)
 end
 
 function RegistryService:Del(request)
-    local id = tonumber(request.data)
+    local id = request.data
     if id == nil then
         return XCode.Failure
     end
@@ -33,7 +33,7 @@ function RegistryService:Del(request)
 end
 
 function RegistryService:Ping(request)
-    local id = tonumber(request.data)
+    local id = request.data
     local info = self.nodes[id]
     if info == nil then
         return XCode.Failure

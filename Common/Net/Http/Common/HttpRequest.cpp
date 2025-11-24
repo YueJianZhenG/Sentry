@@ -26,7 +26,7 @@ namespace http
 
 	bool Request::GetIp(std::string& ip) const
 	{
-		if(this->mHead.Get("x-forwarded-for", ip))
+		if(this->mHead.Get(http::Header::ProxyIP, ip))
 		{
 			return true;
 		}
@@ -194,15 +194,12 @@ namespace http
 		jsonWriter.Add("url", this->mUrl.ToStr());
 		jsonWriter.Add("method", this->mUrl.Method());
 		jsonWriter.Add("version", this->mUrl.Version());
+    	std::unique_ptr<json::w::Value> headObject = jsonWriter.AddObject("head");
 
-		if(this->mHead.Get(http::Header::RealIp, str))
-		{
-			jsonWriter.Add("ip", str);
-		}
-		if(this->mHead.Get(http::Header::Auth, str))
-		{
-			jsonWriter.Add("token", str);
-		}
+    	for(const std::pair<std::string, std::string> & iter : this->mHead.GetValue())
+    	{
+    		headObject->Add(iter.first.c_str(), iter.second);
+    	}
 
 		if(this->mUrl.GetQuery().Size() > 0)
 		{
@@ -234,7 +231,7 @@ namespace http
 		return m.find(method) != std::string::npos;
 	}
 
-	void Request::SetContent(const char* t, const std::string& content)
+	void Request::SetContent(const std::string & t, const std::string& content)
 	{
 		this->SetContent(t,  content.c_str(), content.size());
 	}
@@ -248,7 +245,7 @@ namespace http
 		}
 	}
 
-	void Request::SetContent(const char* t, const char* content, size_t size)
+	void Request::SetContent(const std::string & t, const char* content, size_t size)
 	{
 		std::unique_ptr<http::TextContent> customData(new http::TextContent());
 		{

@@ -39,9 +39,12 @@ namespace oss
 		std::string policy;
 		std::string OSSAccessKeyId;
 		std::string signature;
-		std::string key;
+
+		std::string fileName;
+		std::string objectKey;
 
 		std::string url;
+		std::string host;
 	};
 
 	struct Response

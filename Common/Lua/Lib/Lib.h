@@ -4,7 +4,7 @@
 
 #ifndef APP_LIB_H
 #define APP_LIB_H
-#include "Core/Event/IEvent.h"
+#include "Event/Base/IEvent.h"
 #include "Lua/Engine/ModuleClass.h"
 
 namespace lua
@@ -16,7 +16,8 @@ namespace lua
 	}
 	namespace guid
 	{
-		extern int New(lua_State * L);
+		extern int Gen(lua_State * L);
+		extern int Make(lua_State * L);
 	}
 
 	namespace lfmt
@@ -40,14 +41,19 @@ namespace lua
 		extern int luaopen_lrouter(lua_State* L);
 
 		extern int luaopen_llog(lua_State* L);
+		extern int luaopen_lxml(lua_State* L);
 		extern int luaopen_ljson(lua_State* L);
 		extern int luaopen_lhttp(lua_State* L);
 		extern int luaopen_lbson(lua_State * L);
 		extern int luaopen_lguid(lua_State * L);
 
+
 		extern int luaopen_ltcp(lua_State * L);
 		extern int luaopen_lzip(lua_State * L);
 		extern int luaopen_loss(lua_State* L);
+		extern int luaopen_lsms(lua_State* L);
+
+		extern int luaopen_lmath(lua_State * L);
 
 		extern int luaopen_lcensor(lua_State * L);
 #ifdef __ENABLE_OPEN_SSL__

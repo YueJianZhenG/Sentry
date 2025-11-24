@@ -82,5 +82,16 @@ namespace acs
 		}
 		return CreateComponent(iter->second->Name);
 	}
+
+	template<typename T>
+	class ComponentAutoRegister
+	{
+	public:
+		explicit ComponentAutoRegister(const std::string & name) {
+			ComponentFactory::Add<T>(name);
+		}
+	};
+
 #define REGISTER_COMPONENT(type) ComponentFactory::Add<type>(#type)
+#define AUTO_REGISTER_COMPONENT(type) static ComponentAutoRegister<type> gRegister_##type(#type)
 }// namespace Sentry

@@ -18,6 +18,12 @@ namespace acs
 {
 	bool LaunchComponent::Awake()
 	{
+		json::r::Value luaObject;
+		if (this->mApp->Config().Get("lua", luaObject))
+		{
+			this->mApp->AddComponent<LuaComponent>();
+		}
+
 		if (ClusterConfig::Inst() == nullptr)
 		{
 			return true;
@@ -35,11 +41,7 @@ namespace acs
 		{
 			LOG_CHECK_RET_FALSE(this->AddComponent(components));
 		}
-		json::r::Value luaObject;
-		if (this->mApp->Config().Get("lua", luaObject))
-		{
-			this->mApp->AddComponent<LuaComponent>();
-		}
+
 		if(nodeConfig->GetRpcServices(rpcService) > 0)
 		{
 			LOG_CHECK_RET_FALSE(this->AddRpcService(rpcService));
@@ -55,10 +57,9 @@ namespace acs
 
 	bool LaunchComponent::AddRpcService(const std::vector<std::string>& service)
 	{
-		const RpcConfig* rpcConfig = RpcConfig::Inst();
 		for (const std::string& name: service)
 		{
-			if (!rpcConfig->HasService(name))
+			if (!RpcConfig::Inst()->HasService(name))
 			{
 				LOG_ERROR("not rpc service => {}", name);
 				return false;
@@ -67,42 +68,53 @@ namespace acs
 			{
 				continue;
 			}
-			if (!this->mApp->AddComponent(name))
+			std::unique_ptr<Component> component = ComponentFactory::CreateComponent(name);
+			if(component == nullptr)
 			{
-				std::unique_ptr<Component> component(new LuaRpcService());
-				if (!this->mApp->AddComponent(name, std::move(component)))
+				component = std::make_unique<LuaRpcService>();
+				if(component == nullptr)
 				{
-					LOG_ERROR("add rpc service [{}] error", name);
 					return false;
 				}
 			}
+			if(!this->mApp->AddComponent(name, std::move(component)))
+			{
+				LOG_ERROR("add rpc service [{}] error", name);
+				return false;
+			}
+			//LOG_DEBUG("load rpc service => {}", name);
 		}
 		return true;
 	}
 
 	bool LaunchComponent::AddHttpService(const std::vector<std::string>& service)
 	{
-		const HttpConfig* httpConfig = HttpConfig::Inst();
 		for (const std::string& name: service)
 		{
 			if (this->mApp->HasComponent(name))
 			{
 				continue;
 			}
-			if (!httpConfig->HasService(name))
+			if (!HttpConfig::Inst()->HasService(name))
 			{
 				LOG_ERROR("not http service => {}", name);
 				return false;
 			}
-			if (!this->mApp->AddComponent(name))
+			std::unique_ptr<Component> component = ComponentFactory::CreateComponent(name);
+			if(component == nullptr)
 			{
-				std::unique_ptr<Component> component(new LuaHttpService());
-				if (!this->mApp->AddComponent(name, std::move(component)))
+				component = std::make_unique<LuaHttpService>();
+				if(component == nullptr)
 				{
-					LOG_ERROR("add http service [{}] error", name);
 					return false;
 				}
 			}
+			if(!this->mApp->AddComponent(name, std::move(component)))
+			{
+				LOG_ERROR("add http service [{}] error", name);
+				return false;
+			}
+			//LOG_DEBUG("load http service => {}", name);
 		}
 		return true;
 	}
@@ -135,10 +147,14 @@ namespace acs
 		{
 			LOG_CHECK_RET_FALSE(config.Get("core", jsonObj));
 		}
-		LOG_CHECK_RET_FALSE(config.Get("listen", jsonObj));
+		if(!config.Get("listen", jsonObj))
+		{
+			return true;
+		}
 
 		std::unordered_map<std::string, int> ProtocolTypeMap = {
 				{ "tcp", proto_type::tcp },
+				{ "kcp", proto_type::udp },
 				{ "udp", proto_type::udp },
 				{ "http", proto_type::tcp },
 				{ "https", proto_type::tcp },

@@ -9,7 +9,9 @@
         },
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据条件查询多个文档"
     },
     "MongoReadProxy.Count" : {
         "async": true,
@@ -20,7 +22,9 @@
         },
         "response": {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据条件查询文档数量"
     },
     "MongoReadProxy.FindOne" : {
         "async": true,
@@ -32,7 +36,9 @@
         },
         "response" : {
             "data" : { }
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据条件查询单个文档"
     },
     "MongoReadProxy.GetMore" : {
         "async": true,
@@ -45,7 +51,9 @@
         "response" : {
             "cursor": 0,
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据游标继续查询文档"
     },
     "MongoReadProxy.FindPage" : {
         "async": true,
@@ -58,7 +66,9 @@
         },
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "分页查询"
     },
     "MongoReadProxy.Sample" : {
         "async": true,
@@ -71,6 +81,7 @@
         "response" : {
             "list" : []
         },
+        "timeout" : 15,
         "desc" : "随机采样N个文档"
     },
 
@@ -84,7 +95,9 @@
         },
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "聚合查询"
     },
 
     "MongoReadProxy.ListDatabases" : {
@@ -92,7 +105,9 @@
         "proto" : "json",
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "获取数据库名列表"
     },
 
     "MongoReadProxy.ListCollections" : {
@@ -103,7 +118,9 @@
         },
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "获取某个库下的所有集合名"
     },
 
     "MongoWriteProxy.Inc" : {
@@ -117,7 +134,9 @@
         },
         "response" : {
             "value" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "对某个字段叠加value"
     },
 
     "MongoWriteProxy.Save" : {
@@ -130,7 +149,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc":"保存数据,不存在就创建"
     },
 
     "MongoWriteProxy.Update" : {
@@ -144,7 +165,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc": "根据条件更新数据"
     },
     "MongoWriteProxy.Insert" : {
         "async": true,
@@ -155,7 +178,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "批量插入数据"
     },
     "MongoWriteProxy.Delete" : {
         "async": true,
@@ -166,7 +191,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据条件删除文档"
     },
     "MongoWriteProxy.Deletes" : {
         "async": true,
@@ -177,7 +204,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据多个条件删除多个文档"
     },
     "MongoWriteProxy.Updates" : {
         "async": true,
@@ -194,7 +223,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据多个条件更新多个文档"
     },
     "MongoWriteProxy.SetIndex" : {
         "async": true,
@@ -204,7 +235,9 @@
             "key" : "xxx",
             "sort" : 1,
             "unique" : false
-        }
+        },
+        "timeout" : 15,
+        "desc" : "设置索引"
     },
     "MongoWriteProxy.FindModify" : {
         "async": true,
@@ -216,6 +249,8 @@
         },
         "response" : {
             "value" : { }
-        }
+        },
+        "timeout" : 15,
+        "desc" : "更新之后返回"
     }
 }

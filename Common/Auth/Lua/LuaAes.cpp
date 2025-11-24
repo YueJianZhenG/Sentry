@@ -9,10 +9,11 @@ namespace lua
 {
 	int laes::Encode(lua_State* L)
 	{
-		std::string output;
 		size_t size1, size2 = 0;
 		const char * key = luaL_checklstring(L, 1, &size1);
 		const char * value = luaL_checklstring(L, 2, &size2);
+
+		std::string output;
 		if(!aes::Encode(std::string(key, size1), std::string(value, size2), output))
 		{
 			return 0;
@@ -23,10 +24,11 @@ namespace lua
 
 	int laes::Decode(lua_State* L)
 	{
-		std::string output;
 		size_t size1, size2 = 0;
 		const char * key = luaL_checklstring(L, 1, &size1);
 		const char * value = luaL_checklstring(L, 2, &size2);
+
+		std::string output;
 		if(!aes::Decode(std::string(key, size1), std::string(value, size2), output))
 		{
 			return 0;

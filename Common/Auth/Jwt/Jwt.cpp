@@ -8,8 +8,8 @@ namespace jwt
 {
 	std::string hmac_sha256(const std::string& key, const std::string& data)
 	{
-		unsigned char result[EVP_MAX_MD_SIZE];
 		unsigned int result_len;
+		unsigned char result[EVP_MAX_MD_SIZE] = { 0 };
 		HMAC(EVP_sha256(), key.c_str(), static_cast<int>(key.length()),
 				reinterpret_cast<const unsigned char*>(data.c_str()), data.length(), result, &result_len);
 		return std::string(reinterpret_cast<char*>(result), result_len);
@@ -20,7 +20,14 @@ namespace jwt
 #include "Util/Crypt/sha1.h"
 #endif
 
-std::string jwt::Create(const std::string& payload, const std::string& secret)
+std::string jwt::secret;
+
+std::string jwt::Encode(const std::string& payload)
+{
+	return jwt::Encode(payload, jwt::secret);
+}
+
+std::string jwt::Encode(const std::string& payload, const std::string& secret)
 {
 	std::string encoded_payload = _bson::base64::encode(payload);
 #ifdef __ENABLE_OPEN_SSL__
@@ -31,15 +38,22 @@ std::string jwt::Create(const std::string& payload, const std::string& secret)
 	return encoded_payload + "." + _bson::base64::encode(signature);
 }
 
-bool jwt::Verify(const std::string& jwt, const std::string& secret, std::string& payload)
+std::string jwt::Encode(const json::w::Document& document, const std::string& secret)
 {
-	size_t pos = jwt.find('.');
+	std::string payload;
+	document.Serialize(&payload);
+	return jwt::Encode(payload, secret);
+}
+
+bool jwt::Decode(const std::string& sign, const std::string& secret, std::string& payload)
+{
+	size_t pos = sign.find('.');
 	if(pos == std::string::npos)
 	{
 		return false;
 	}
-	std::string first = jwt.substr(0, pos);
-	std::string second = jwt.substr(pos + 1);
+	std::string first = sign.substr(0, pos);
+	std::string second = sign.substr(pos + 1);
 #ifdef __ENABLE_OPEN_SSL__
 	std::string signature = _bson::base64::encode(hmac_sha256(secret, first));
 #else
@@ -51,4 +65,24 @@ bool jwt::Verify(const std::string& jwt, const std::string& secret, std::string&
 	}
 	payload = _bson::base64::decode(first);
 	return true;
+}
+
+bool jwt::Decode(const std::string& sign, const std::string& secret, json::r::Document& document)
+{
+	std::string payload;
+	if(!jwt::Decode(sign, secret, payload))
+	{
+		return false;
+	}
+	return document.Decode(payload);
+}
+
+bool jwt::Decode(const std::string& sign, std::string& payload)
+{
+	return jwt::Decode(sign, jwt::secret, payload);
+}
+
+bool jwt::Decode(const std::string& sign, json::r::Document& document)
+{
+	return jwt::Decode(sign, jwt::secret, document);
 }

@@ -7,20 +7,9 @@
         },
         "response" : {
             "list" : []
-        }
-    },
-    "PgsqlReadProxy.Inc" : {
-        "async": true,
-        "proto" : "json",
-        "request" : {
-            "sql" : ""
         },
-        "response" : {
-            "tab" : "",
-            "field" : "",
-            "value" : 1,
-            "filter" : { }
-        }
+        "timeout" : 15,
+        "desc" : "在读节点执行sql"
     },
     "PgsqlReadProxy.Find" : {
         "async": true,
@@ -34,7 +23,9 @@
         },
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据条件查询多条数据"
     },
     "PgsqlReadProxy.Count" : {
         "async": true,
@@ -45,7 +36,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据条件获取数据多少条"
     },
     "PgsqlReadProxy.Func" : {
         "async": true,
@@ -58,7 +51,9 @@
         },
         "response" : {
             "data" : { }
-        }
+        },
+        "timeout" : 15,
+        "desc" : "执行聚合函数"
     },
     "PgsqlReadProxy.FindPage" : {
         "async": true,
@@ -72,7 +67,9 @@
         },
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "执行分页查询"
     },
     "PgsqlReadProxy.Distinct" : {
         "async": true,
@@ -84,7 +81,9 @@
         },
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "去重"
     },
     "PgsqlWriteProxy.Run" : {
         "async": true,
@@ -94,7 +93,9 @@
         },
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "在写节点执行sql"
     },
     "PgsqlWriteProxy.Inc" : {
         "async": true,
@@ -108,7 +109,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "对某个字段执行+="
     },
     "PgsqlWriteProxy.Insert" : {
         "async": true,
@@ -119,7 +122,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "插入单挑数据"
     },
     "PgsqlWriteProxy.Replace" : {
         "async": true,
@@ -130,7 +135,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "替换单条数据"
     },
     "PgsqlWriteProxy.Delete" : {
         "async": true,
@@ -139,7 +146,9 @@
             "tab" : "",
             "limit" : 0,
             "filter" : { }
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据条件删除数据"
     },
     "PgsqlWriteProxy.Update" : {
         "async": true,
@@ -152,7 +161,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据条件更新数据"
     },
     "PgsqlWriteProxy.SetIndex" : {
         "async": true,
@@ -161,7 +172,9 @@
             "tab" : "",
             "field" : "",
             "unique" : false
-        }
+        },
+        "timeout" : 15,
+        "desc" : "设置索引"
     },
     "PgsqlReadProxy.Execute" : {
         "async": true,
@@ -169,7 +182,9 @@
         "request" : {
             "stmt" : "",
             "args" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "在读节点执行预编译sql"
     },
     "PgsqlWriteProxy.Execute" : {
         "async": true,
@@ -177,7 +192,9 @@
         "request" : {
             "stmt" : "",
             "args" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "在写节点执行预编译sql"
     },
     "PgsqlWriteProxy.Commit" : {
         "async": true,
@@ -186,7 +203,9 @@
         "response" : {
             "count" : 0,
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "在事务中执行sql"
     },
     "PgsqlWriteProxy.InsertBatch" : {
         "async": true,
@@ -197,7 +216,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "使用事务批量插入"
     },
     "PgsqlWriteProxy.UpdateBatch" : {
         "async": true,
@@ -211,6 +232,8 @@
         ],
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据多个条件更新多条数据"
     }
 }

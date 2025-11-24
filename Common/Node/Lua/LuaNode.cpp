@@ -9,44 +9,51 @@
 
 namespace lua
 {
-	int node::AddListen(lua_State* lua)
+	int node::AddListen(lua_State* L)
 	{
 		acs::Node* server = acs::App::Inst();
-		if (lua_isnumber(lua, 1))
+		if (lua_isinteger(L, 1))
 		{
-			int id = (int)luaL_checkinteger(lua, 1);
+			int id = (int)lua_tointeger(L, 1);
 			server = acs::App::ActorMgr()->Get(id);
 			if (server == nullptr)
 			{
-				luaL_error(lua, "not find server:%d", id);
+				luaL_error(L, "not find server:%d", id);
 				return 0;
 			}
 		}
-		std::string name(luaL_checkstring(lua, 2));
-		std::string address(luaL_checkstring(lua, 3));
-		lua_pushboolean(lua, server->AddListen(name, address));
+		size_t count1, count2 = 0;
+		const char * str1 = luaL_checklstring(L, 2, &count1);
+		const char * str2 = luaL_checklstring(L, 3, &count2);
+
+		std::string name(str1, count1);
+		std::string address(str2, count2);
+		lua_pushboolean(L, server->AddListen(name, address));
 		return 1;
 	}
 
-	int node::GetListen(lua_State* lua)
+	int node::GetListen(lua_State* L)
 	{
 		std::string address;
 		acs::Node* server = acs::App::Inst();
-		if (lua_isinteger(lua, 1))
+		if (lua_isinteger(L, 1))
 		{
-			int id = (int)luaL_checkinteger(lua, 1);
+			int id = (int)lua_tointeger(L, 1);
 			server = acs::App::ActorMgr()->Get(id);
 		}
 		if (server == nullptr)
 		{
 			return 0;
 		}
-		std::string name(luaL_checkstring(lua, 2));
+		size_t count1 = 0;
+		const char * str1 = luaL_checklstring(L, 2, &count1);
+
+		std::string name(str1, count1);
 		if (!server->GetListen(name, address))
 		{
 			return 0;
 		}
-		lua_pushlstring(lua, address.c_str(), address.size());
+		lua_pushlstring(L, address.c_str(), address.size());
 		return 1;
 	}
 
@@ -55,7 +62,7 @@ namespace lua
 		acs::Node* server = acs::App::Inst();
 		if (lua_isinteger(L, 1))
 		{
-			int id = (int)luaL_checkinteger(L, 1);
+			int id = (int)lua_tointeger(L, 1);
 			server = acs::App::ActorMgr()->Get(id);
 		}
 		if (server == nullptr)
@@ -89,8 +96,14 @@ namespace lua
 
 	int node::Create(lua_State* L)
 	{
+		size_t size = 0;
 		int id = (int)luaL_checkinteger(L, 1);
-		std::string name = luaL_checkstring(L, 2);
+		const char * str = luaL_checklstring(L, 2, &size);
+		if(str == nullptr || size <= 0)
+		{
+			return 0;
+		}
+		std::string name(str, size);
 		acs::Node* node = acs::App::ActorMgr()->Get(id);
 		if (node == nullptr)
 		{
@@ -102,8 +115,14 @@ namespace lua
 
 	int node::Query(lua_State* L)
 	{
+		size_t count = 0;
+		const char * str = luaL_checklstring(L, 1, &count);
+		if(str == nullptr || count <= 0)
+		{
+			return 0;
+		}
 		std::string nodeName;
-		std::string service(luaL_checkstring(L, 1));
+		std::string service = {str, count};
 		if (!acs::ClusterConfig::Inst()->GetServerName(service, nodeName))
 		{
 			return 0;
@@ -114,11 +133,17 @@ namespace lua
 
 	int node::Next(lua_State* L)
 	{
+		size_t count = 0;
+		const char * str = luaL_checklstring(L, 1, &count);
+		if(str == nullptr || count <= 0)
+		{
+			return 0;
+		}
 		std::string nodeName;
-		std::string service(luaL_checkstring(L, 1));
+		std::string service(str, count);
 		if (!acs::ClusterConfig::Inst()->GetServerName(service, nodeName))
 		{
-			luaL_error(L, "[%s] find node name", service.c_str());
+			LOG_ERROR("[{}] find node name", service);
 			return 0;
 		}
 		acs::Node * node = acs::App::ActorMgr()->Next(nodeName);
@@ -132,11 +157,17 @@ namespace lua
 
 	int node::Rand(lua_State* L)
 	{
+		size_t count = 0;
+		const char * str = luaL_checklstring(L, 1, &count);
+		if(str == nullptr || count <= 0)
+		{
+			return 0;
+		}
 		std::string nodeName;
-		std::string service(luaL_checkstring(L, 1));
+		std::string service(str, count);
 		if (!acs::ClusterConfig::Inst()->GetServerName(service, nodeName))
 		{
-			luaL_error(L, "[%s] find node name", service.c_str());
+			LOG_ERROR("[{}] find node name", service);
 			return 0;
 		}
 		acs::Node * node = acs::App::ActorMgr()->Rand(nodeName);
@@ -150,11 +181,17 @@ namespace lua
 
 	int node::Hash(lua_State* L)
 	{
+		size_t size = 0;
 		std::string nodeName;
-		std::string service(luaL_checkstring(L, 1));
+		const char * str = luaL_checklstring(L, 1, &size);
+		if(str == nullptr || size <= 0)
+		{
+			return 0;
+		}
+		std::string service(str, size);
 		if (!acs::ClusterConfig::Inst()->GetServerName(service, nodeName))
 		{
-			luaL_error(L, "[%s] find node name", service.c_str());
+			LOG_ERROR("[{}] find node name", service);
 			return 0;
 		}
 		long long hash = luaL_checkinteger(L, 2);

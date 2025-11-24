@@ -53,3 +53,37 @@ message item
         repeated Value list = 1;
     }
 }
+
+message frame
+{
+    message vec2
+    {
+        float x = 1;
+        float y = 2;
+    }
+
+    message vec3
+    {
+        float x = 1;
+        float y = 2;
+        float z = 3;
+    }
+
+    message input
+    {
+        vec2 pos = 1;
+        int32 skill_id = 2;
+    }
+
+    message request
+    {
+        int64 unit_id = 1;
+        repeated input inputs = 2;
+    }
+
+    message broadcast
+    {
+        repeated request messages = 1;
+    }
+
+}

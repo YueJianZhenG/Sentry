@@ -2,8 +2,8 @@
 // Created by zmhy0073 on 2022/10/13.
 //
 
-#include"System.h"
-
+#include "System.h"
+#include <regex>
 #ifdef __OS_WIN__
 
 #include<direct.h>
@@ -50,8 +50,8 @@ namespace os
 	{
 		// 打开文件
 		std::string name = fmt::format("{}.dmp", help::Time::GetDateStr());
-		HANDLE hFile = CreateFile(_T(name.c_str()), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
-				FILE_ATTRIBUTE_NORMAL, NULL);
+		HANDLE hFile = CreateFile(_T(name.c_str()), GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+				FILE_ATTRIBUTE_NORMAL, nullptr);
 		if (hFile == INVALID_HANDLE_VALUE)
 		{
 			return false;
@@ -94,8 +94,12 @@ namespace os
 		System::SetAppEnv("config", "./config/run/all.json");
 
 		char buffer[256] = { 0 };
+#ifdef __OS_WIN__
+		std::string work = fmt::format("{0}/", _getcwd(buffer, sizeof(buffer)));
+#else
 		std::string work = fmt::format("{0}/", getcwd(buffer, sizeof(buffer)));
-		help::Str::ReplaceString(work, "\\", "/");
+#endif
+		help::Str::Replace(work, "\\", "/");
 		if (work.back() == '/')
 		{
 			work.pop_back();
@@ -181,7 +185,7 @@ namespace os
 			{
 				const std::string& key = iter->first;
 				const std::string& val = iter->second;
-				help::Str::ReplaceString(value, key, val);
+				help::Str::Replace(value, key, val);
 			}
 			return true;
 		}

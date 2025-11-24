@@ -3,7 +3,7 @@
 #include "Util/Tools/String.h"
 #include "Cluster/Config/ClusterConfig.h"
 #include "Util/File/FileHelper.h"
-
+#include <regex>
 namespace acs
 {
 
@@ -95,7 +95,7 @@ namespace acs
 					LOG_ERROR("rpc config : {}", method);
 					return false;
 				}
-				methodConfig->timeout = 0;
+				methodConfig->timeout = 0; //默认超时
 				methodConfig->debug = false;
 				methodConfig->open = true;
 				methodConfig->auth = true;
@@ -152,6 +152,7 @@ namespace acs
 					methodConfig->proto = rpc::proto::json;
 				}
 			}
+			value.Get("desc", methodConfig->desc);
 			value.Get("auth", methodConfig->auth);
 			value.Get("async", methodConfig->async);
 			value.Get("open", methodConfig->open);
@@ -161,8 +162,11 @@ namespace acs
 			value.Get("debug", methodConfig->debug);
 			value.Get("client", methodConfig->client);
 			value.Get("to_client", methodConfig->to_client);
-
-			ClusterConfig::Inst()->GetServerName(service, methodConfig->server);
+			ClusterConfig::Inst()->GetServerName(service, methodConfig->node);
+			if(value.Get("opcode", methodConfig->opcode) && methodConfig->opcode > 0)
+			{
+				this->mRpcOpcodeMethodConfig.emplace(methodConfig->opcode, methodConfig);
+			}
 		}
 		return true;
 	}
@@ -210,6 +214,7 @@ namespace acs
 
 	bool RpcConfig::OnReLoadJson()
 	{
+		this->mRpcOpcodeMethodConfig.clear();
 		return this->OnLoadJson();
 	}
 
@@ -242,11 +247,18 @@ namespace acs
 		}
 	}
 
+	const RpcMethodConfig* RpcConfig::GetMethodConfig(int opcode) const
+	{
+		auto iter = this->mRpcOpcodeMethodConfig.find(opcode);
+		return iter != this->mRpcOpcodeMethodConfig.end() ? iter->second : nullptr;
+	}
+
 	const RpcMethodConfig* RpcConfig::GetMethodConfig(const std::string& fullName) const
 	{
 		auto iter = this->mRpcMethodConfig.find(fullName);
 		return iter != this->mRpcMethodConfig.end() ? iter->second.get() : nullptr;
 	}
+
 }
 
 namespace acs
@@ -270,7 +282,7 @@ namespace acs
 				methodConfig->auth = true;
 				methodConfig->open = true;
 				methodConfig->timeout = 0;
-				methodConfig->permission = 1;
+				methodConfig->access = 1;
 				methodConfig->async = false;
 				methodConfig->record = false;
 				methodConfig->limit = 1024 * 1024;
@@ -285,7 +297,7 @@ namespace acs
 				value.Get("token", methodConfig->token);
 				value.Get("record", methodConfig->record);
 				value.Get("timeout", methodConfig->timeout);
-				value.Get("permission", methodConfig->permission);
+				value.Get("access", methodConfig->access);
 				value.Get("content-type", methodConfig->content);
 				std::vector<std::string> headers;
 
@@ -309,11 +321,11 @@ namespace acs
 				if (value.Get("WhiteList", jsonArray))
 				{
 					size_t index = 0;
-					std::string value;
-					while (jsonArray.Get(index, value))
+					std::string ip;
+					while (jsonArray.Get(index, ip))
 					{
 						index++;
-						methodConfig->WhiteList.emplace(value);
+						methodConfig->WhiteList.emplace(ip);
 					}
 				}
 				json::r::Value doc;

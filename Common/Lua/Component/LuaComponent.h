@@ -18,14 +18,16 @@ namespace acs
 	};
 
 	class LuaComponent final : public Component,
-							   public IStart, public IComplete, public IRefresh,
-							   public IServerRecord, public IAppStop, public ISecondUpdate, public IDestroy
+							   public IStart, public IComplete, public IRefresh, public IFrameUpdate,
+							   public IServerRecord, public IAppStop
 	{
 	public:
 		LuaComponent();
-		~LuaComponent() final = default;
+		~LuaComponent() final;
 	public:
+		void LoadAllLib();
 		double GetMemorySize();
+		bool AddRequire(const std::string & direct);
 		Lua::LuaModule * LoadModule(const std::string & name);
 	protected:
 		bool Awake() final;
@@ -34,15 +36,12 @@ namespace acs
 		void OnAppStop() final;
 		void OnComplete() final;
 		bool OnRefresh() final;
-		void OnDestroy() final;
-		void OnSecondUpdate(int tick) noexcept final;
+		void OnFrameUpdate(int elapse) final;
 		void OnRecord(json::w::Document &document) final;
 	private:
-		void LoadAllLib();
 		bool LoadAllFile();
 		void RegisterLuaClass();
 		void CollectCollectgarbage() const;
-		void AddRequire(const std::string & direct);
 		void RefreshLuaModule(const std::string & module);
 	private:
 		lua_State* mLuaEnv;

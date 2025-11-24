@@ -4,10 +4,11 @@
 
 #ifndef APP_RPCCOMPONENT_H
 #define APP_RPCCOMPONENT_H
-#include<unordered_map>
-#include"Rpc/Async/RpcTaskSource.h"
-#include"Entity/Component/Component.h"
-
+#include <queue>
+#include <unordered_map>
+#include "Rpc/Async/RpcTaskSource.h"
+#include "Entity/Component/Component.h"
+#include "Timer/Component/TimerComponent.h"
 namespace acs
 {
     template<typename T>
@@ -19,71 +20,102 @@ namespace acs
         typedef IRpcTask<T> * RpcTask;
     public:
         template<typename T1>
-		inline T1 * AddTask(T1 * task)
+		inline T1 * AddTask(T1 * task, int timeout = 0)
         {
-			int k = task->GetRpcId();
-			assert(k != 0);
-			auto iter = this->mTasks.find(k);
-			if(iter != this->mTasks.end())
+			static TimerComponent * timerComponent = this->GetComponent<TimerComponent>();
 			{
-				this->mDelTasks.emplace_back(task);
-				LOG_ERROR("add task already exist");
-				return nullptr;
+				int rpcId = task->GetRpcId();
+				auto iter = this->mTasks.find(rpcId);
+				if(iter != this->mTasks.end())
+				{
+					this->mDelTasks.emplace(task);
+					LOG_ERROR("add task already exist");
+					return nullptr;
+				}
+				if(timeout > 0)
+				{
+					int ms = timeout * 1000;
+					long long id = timerComponent->Timeout(ms,
+							&RpcComponent<T>::OnTimeout, this, rpcId);
+					task->SetTimerId(id);
+				}
+				this->mTasks.emplace(rpcId, task);
 			}
-			this->mTasks.emplace(k, task);
             return task;
         }
 		template<typename T1>
-		inline T1 * BuildRpcTask(int rpcId)
+		inline T1 * BuildRpcTask(int rpcId, unsigned int timeout = 0)
 		{
 			T1 * task = new T1(rpcId);
-			return this->AddTask(task);
+			return this->AddTask(task, timeout);
 		}
 
-		inline bool OnResponse(int key, std::unique_ptr<T> message);
+		inline void OnTimeout(int key);
+		inline bool OnResponse(int key, std::unique_ptr<T>& message);
 		inline size_t AwaitCount() const { return this->mTasks.size(); }
 		inline int BuildRpcId() { return this->mNumberPool.BuildNumber(); }
 		inline long long CurrentRpcCount() { return this->mNumberPool.CurrentNumber(); }
 	protected:
-		void OnLastFrameUpdate(long long) noexcept final;
-		virtual void OnDelTask(int k) { }
-        virtual void OnNotFindResponse(int key, std::unique_ptr<T> message);
+		void OnLastFrameUpdate() noexcept final;
+        virtual void OnNotFindResponse(int key, std::unique_ptr<T>& message);
     private:
-		std::vector<RpcTask> mDelTasks;
+		std::queue<RpcTask> mDelTasks;
 		math::NumberPool<int> mNumberPool;
 		std::unordered_map<int, RpcTask> mTasks;
     };
 
 	template<typename T>
-	void RpcComponent<T>::OnLastFrameUpdate(long long nowMS) noexcept
+	void RpcComponent<T>::OnLastFrameUpdate() noexcept
 	{
-		for (RpcTask& task: this->mDelTasks)
+		while(!this->mDelTasks.empty())
 		{
-			delete task;
+			delete this->mDelTasks.front();
+			this->mDelTasks.pop();
 		}
-		this->mDelTasks.clear();
+	}
+
+	template<typename T>
+	inline void RpcComponent<T>::OnTimeout(int key)
+	{
+		static TimerComponent* timerComponent = this->GetComponent<TimerComponent>();
+		{
+			auto iter1 = this->mTasks.find(key);
+			if (iter1 == this->mTasks.end())
+			{
+				return;
+			}
+
+			iter1->second->OnTimeout();
+			long long timerId = iter1->second->GetTimerId();
+			timerComponent->CancelTimer(timerId);
+			this->mDelTasks.emplace(iter1->second);
+			this->mTasks.erase(iter1);
+		}
 	}
 
     template<typename T>
-    inline bool RpcComponent<T>::OnResponse(int key, std::unique_ptr<T> message)
+    inline bool RpcComponent<T>::OnResponse(int key, std::unique_ptr<T>& message)
 	{
-		auto iter1 = this->mTasks.find(key);
-		if (iter1 == this->mTasks.end())
+		static TimerComponent* timerComponent = this->GetComponent<TimerComponent>();
 		{
-			this->OnNotFindResponse(key, std::move(message));
-			return false;
+			auto iter1 = this->mTasks.find(key);
+			if (iter1 == this->mTasks.end())
+			{
+				this->OnNotFindResponse(key, message);
+				return false;
+			}
+
+			iter1->second->OnResponse(message);
+			long long timerId = iter1->second->GetTimerId();
+			timerComponent->CancelTimer(timerId);
+			this->mDelTasks.emplace(iter1->second);
+			this->mTasks.erase(iter1);
 		}
-		{
-			this->OnDelTask(key);
-			iter1->second->OnResponse(std::move(message));
-			this->mDelTasks.emplace_back(iter1->second);
-		}
-		this->mTasks.erase(iter1);
 		return true;
 	}
 
     template<typename T>
-    void RpcComponent<T>::OnNotFindResponse(int k, std::unique_ptr<T> message)
+    void RpcComponent<T>::OnNotFindResponse(int k, std::unique_ptr<T>& message)
     {
         LOG_ERROR("{} not find rpc task id({}) ", this->GetName(), k);
     }

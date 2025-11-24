@@ -79,16 +79,38 @@ namespace acs
 
 	int GateComponent::OnRequest(std::unique_ptr<rpc::Message> & message)
 	{
-		char net = message->GetNet();
+		//char net = message->GetNet();
 		message->SetNet(rpc::net::tcp);
-		message->GetHead().Add("n", net);
+		//message->GetHead().Add("n", net);
 		message->SetSource(rpc::source::client);
+		const RpcMethodConfig* methodConfig = nullptr;
+		unsigned short opcode = message->GetOpcode();
 		assert(message->GetHead().Has(rpc::Header::client_sock_id));
-		const std::string& fullName = message->GetHead().GetStr(rpc::Header::func);
-		const RpcMethodConfig* methodConfig = RpcConfig::Inst()->GetMethodConfig(fullName);
-		if (methodConfig == nullptr || !methodConfig->client || !methodConfig->open)
+		if(opcode > 0)
 		{
-			LOG_ERROR("call function not exist : {}", fullName)
+			methodConfig = RpcConfig::Inst()->GetMethodConfig(opcode);
+			if(methodConfig == nullptr)
+			{
+				LOG_ERROR("not find rpc config : opcode:{}", opcode);
+				return XCode::CallFunctionNotExist;
+			}
+			std::string func = fmt::format("{}.{}",
+				methodConfig->service, methodConfig->method);
+			message->GetHead().Add(rpc::Header::func, func);
+		}
+		else
+		{
+			const std::string& fullName = message->GetHead().GetStr(rpc::Header::func);
+			methodConfig = RpcConfig::Inst()->GetMethodConfig(fullName);
+			if(methodConfig == nullptr)
+			{
+				LOG_ERROR("not find rpc config : {}", fullName);
+				return XCode::CallFunctionNotExist;
+			}
+		}
+		if (!methodConfig->client || !methodConfig->open)
+		{
+			LOG_ERROR("call function not exist : {}.{}", methodConfig->service, methodConfig->method)
 			return XCode::CallFunctionNotExist;
 		}
 		long long playerId = 0;
@@ -105,7 +127,7 @@ namespace acs
 			this->mRouter->Send(serverId, message);
 			return XCode::Ok;
 		}
-		const std::string& name = methodConfig->server;
+		const std::string& name = methodConfig->node;
 		NodeCluster * nodeCluster = this->mNode->GetCluster(name);
 		if(nodeCluster == nullptr)
 		{
@@ -114,7 +136,7 @@ namespace acs
 		switch (methodConfig->forward)
 		{
 			case rpc::forward::fixed: //转发到固定机器
-				if (!player->GetServerId(name, serverId))
+				if (!player->GetNodeID(name, serverId))
 				{
 					return XCode::NotFoundServerRpcAddress;
 				}

@@ -6,9 +6,9 @@
 #include "RedisSubComponent.h"
 #include "Entity/Actor/App.h"
 #include "Lua/Engine/ModuleClass.h"
-#include "Rpc/Component/DispatchComponent.h"
 #include "Server/Component/ThreadComponent.h"
 #include "Timer/Component/TimerComponent.h"
+
 #include "Lua/Lib/Lib.h"
 
 namespace acs
@@ -17,7 +17,6 @@ namespace acs
 	{
 		this->mIsSend = false;
 		this->mTimer = nullptr;
-		this->mDispatch = nullptr;
 		REGISTER_JSON_CLASS_FIELD(redis::Cluster, sub);
 		REGISTER_JSON_CLASS_FIELD(redis::Cluster, retry);
 	}
@@ -53,7 +52,6 @@ namespace acs
 			}
 		}
 		this->mTimer = this->GetComponent<TimerComponent>();
-		LOG_CHECK_RET_FALSE(this->mDispatch = this->GetComponent<DispatchComponent>())
 		return true;
 	}
 
@@ -92,11 +90,6 @@ namespace acs
 				= redis::Request::Make("PING");
 			this->Send(request, rpcId);
 		}
-	}
-
-	void RedisSubComponent::OnNotFindResponse(int key, std::unique_ptr<redis::Response> message)
-	{
-		LOG_ERROR("[{}] => {}", key, message->ToString())
 	}
 
 	void RedisSubComponent::Send(std::unique_ptr<redis::Request>& request, int& rpcId)
@@ -138,11 +131,11 @@ namespace acs
 		return true;
 	}
 
-	void RedisSubComponent::OnMessage(int, redis::Request* request, redis::Response* resp) noexcept
+	void RedisSubComponent::OnMessage(int, redis::Request* req, redis::Response* resp) noexcept
 	{
 		do
 		{
-			//CONSOLE_LOG_WARN("resp => {}", resp->ToString())
+			std::unique_ptr<redis::Request> request(req);
 			std::unique_ptr<redis::Response> response(resp);
 			const redis::Element & element = response->element;
 			if (element.type != redis::type::Array || element.list.size() != 3)
@@ -154,8 +147,18 @@ namespace acs
 				break;
 			}
 			auto iter = element.list.begin();
-			const std::string& option = iter->message;
-			if(option == "subscribe")
+			const static std::string& option = iter->message;
+			const static std::string TYPE_MESSAGE = "message";
+			const static std::string TYPE_SUBSCRIBE = "subscribe";
+			const static std::string TYPE_UNSUBSCRIBE = "unsubscribe";
+
+			if(option == TYPE_MESSAGE)
+			{
+				const std::string& channel = (++iter)->message;
+				const std::string& message = (++iter)->message;
+				help::OnRedisPublishMessageEvent::Trigger(channel, message);
+			}
+			else if(option == TYPE_SUBSCRIBE)
 			{
 				const redis::Element & element1 = *(++iter);
 				const redis::Element & element2 = *(++iter);
@@ -165,40 +168,24 @@ namespace acs
 					this->mChannels.emplace(element1.message);
 				}
 			}
-			else if(option == "unsubscribe")
+			else if(option == TYPE_UNSUBSCRIBE)
 			{
 				const redis::Element & element1 = *(++iter);
 				const redis::Element & element2 = *(++iter);
 				if(element2.number == 1)
 				{
-					auto iter = this->mChannels.find(element1.message);
-					if(iter != this->mChannels.end())
+					auto iter1 = this->mChannels.find(element1.message);
+					if(iter1 != this->mChannels.end())
 					{
-						this->mChannels.erase(iter);
+						this->mChannels.erase(iter1);
 						LOG_INFO("unsub ({}) ok", element1.message)
 					}
-				}
-			}
-			else if(option == "message")
-			{
-				const std::string& channel = (++iter)->message;
-				const std::string& message = (++iter)->message;
-				//LOG_DEBUG("[{}] ({}) {}", option, channel, message)
-				std::unique_ptr<rpc::Message> rpcMessage = std::make_unique<rpc::Message>();
-				{
-					rpcMessage->SetType(rpc::type::request);
-					rpcMessage->SetContent(rpc::proto::json, message);
-					rpcMessage->GetHead().Add(rpc::Header::func, channel);
-				}
-				if(this->mDispatch->OnMessage(rpcMessage) == XCode::Ok)
-				{
-					rpcMessage.release();
 				}
 			}
 			if(request != nullptr && request->GetRpcId() > 0)
 			{
 				int rpcId = request->GetRpcId();
-				this->OnResponse(rpcId, std::move(response));
+				this->OnResponse(rpcId, response);
 			}
 		}
 		while (false);

@@ -13,6 +13,9 @@ function CppExport.Run(documents, types, fields, name, descs)
         member.name = field
         if type == "int" then
             member.value = "0"
+        elseif type == "long" or type == "time" then
+            member.value = "0"
+            member.type = "long long"
         elseif type == "string" then
             member.type = "std::string"
             includes["string"] = true
@@ -46,10 +49,14 @@ function CppExport.Run(documents, types, fields, name, descs)
     for _, member in ipairs(members) do
         local desc = descs[member.name]
         if not member.value then
-            content = content .. string.rep("  ", 2) .. string.format("    %s %s; //%s\n", member.type, member.name, desc)
+            content = content .. string.rep("  ", 2) .. string.format("    %s %s;", member.type, member.name)
         else
-            content = content .. string.rep("  ", 2) .. string.format("    %s %s = %s; //%s\n", member.type, member.name, member.value, desc)
+            content = content .. string.rep("  ", 2) .. string.format("    %s %s = %s;", member.type, member.name, member.value)
         end
+        if desc and #desc > 0 then
+            content = content .. " //" .. desc
+        end
+        content = content .. "\n"
     end
     content = content .. string.rep("    ", 1) .. "};\n"
     return content .. "}";

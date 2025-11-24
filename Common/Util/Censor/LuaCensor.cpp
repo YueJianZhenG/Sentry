@@ -4,6 +4,7 @@
 
 #include "LuaCensor.h"
 #include "CensorFactory.h"
+#include "Lua/Engine/UserDataParameter.h"
 
 int censor::New(lua_State* L)
 {

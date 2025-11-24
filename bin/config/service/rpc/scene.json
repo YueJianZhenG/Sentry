@@ -1,0 +1,43 @@
+{
+	"Scene.OnChange": {
+		"async": false,
+		"proto": "json",
+		"net" : "kcp",
+		"desc": "同步状态信息",
+		"to_client" : true
+	},
+	"Scene.Create": {
+		"async": false,
+		"proto": "json",
+		"net" : "kcp",
+		"desc": "创建对象",
+		"to_client" : true
+	},
+	"Scene.Remove": {
+		"async": false,
+		"proto": "json",
+		"net" : "kcp",
+		"desc": "销毁对象",
+		"to_client" : true
+	},
+	"SceneSystem.Login" : {
+		"async" : false,
+		"proto" : "json",
+		"desc": "进入场景"
+	},
+	"SceneSystem.Start": {
+		"async": false,
+		"net" : "udp",
+		"desc": "开始游戏"
+	},
+	"SceneSystem.Logout" : {
+		"async" : false,
+		"proto" : "json",
+		"desc": "离开场景"
+	},
+	"SceneSystem.Broadcast" : {
+		"async" : false,
+		"proto" : "json",
+		"desc": "广播场景内信息"
+	}
+}

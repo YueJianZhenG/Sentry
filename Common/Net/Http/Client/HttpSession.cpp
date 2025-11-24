@@ -9,16 +9,18 @@
 namespace http
 {
 	Session::Session(Component* component, Asio::Context& io)
-			: tcp::Client(0), mSockId(0), mComponent(component), mMainContext(io)
+			: tcp::Client(1024), mSockId(0), mComponent(component), mMainContext(io)
 	{
-
+#ifdef __DEBUG__
+		this->mStartTime = 0;
+#endif
 	}
 
 	Session::~Session() noexcept = default;
 
 	void Session::StartReceiveBody(std::unique_ptr<http::Content> content, int timeout)
 	{
-		this->mRequest->SetBody(std::move(content));
+		this->mRequest->SetContent(std::move(content));
 #ifdef ONLY_MAIN_THREAD
 		this->ReadSome();
 #else
@@ -55,10 +57,9 @@ namespace http
 #ifdef ONLY_MAIN_THREAD
 		this->ClosetClient(code);
 #else
-		Asio::Socket& sock = this->mSocket->Get();
-		const Asio::Executor& exec = sock.get_executor();
+		Asio::Context & ctx = this->mSocket->GetContext();
 		std::shared_ptr<Client> self = this->shared_from_this();
-		asio::post(exec, [this, code, self] { this->ClosetClient(code); });
+		asio::post(ctx, [this, code, self] { this->ClosetClient(code); });
 #endif
 	}
 
@@ -89,9 +90,12 @@ namespace http
 		std::shared_ptr<Client> self = this->shared_from_this();
 		asio::post(this->mSocket->GetContext(), [this, timeout, self]
 		{
-			bool keep = this->mResponse->IsOk()
-					&& this->mRequest->Header().KeepAlive();
-			this->mResponse->Header().SetKeepAlive(keep, 5);
+			if(this->mResponse->IsOk()
+					&& this->mRequest->Header().IsKeepAlive())
+			{
+				this->mResponse->Header().SetKeepAlive(5);
+			}
+
 			if (this->mResponse->GetBody() == nullptr)
 			{
 				this->mResponse->Header().Add(http::Header::ContentLength, 0);
@@ -133,8 +137,6 @@ namespace http
 			return;
 		}
 		this->StopTimer();
-		const std::string& ip = this->mSocket->GetIp();
-		this->mRequest->Header().Set(http::Header::RealIp, ip);
 		this->mResponse = std::make_unique<http::Response>();
 
 		http::Request * request = this->mRequest.get();
@@ -160,7 +162,7 @@ namespace http
 				this->mResponse = std::make_unique<http::Response>();
 			}
 			this->mResponse->SetCode(status);
-			this->mResponse->Header().SetKeepAlive(false, 0);
+			this->mResponse->Header().SetClose();
 			this->Write(*this->mResponse, 5);
 		}
 		else
@@ -189,6 +191,8 @@ namespace http
 #ifdef __DEBUG__
 			this->mRequest->Header().Add("t", this->mStartTime);
 #endif
+			const std::string& ip = this->mSocket->GetIp();
+			this->mRequest->Header().Set(http::Header::RealIp, ip);
 		}
 		int flag = this->mRequest->OnRecvMessage(is, size);
 		if (flag > 0)
@@ -229,7 +233,7 @@ namespace http
 	void Session::OnSendMessage(size_t size)
 	{
 		this->StopTimer();
-		if (this->mResponse->Header().KeepAlive())
+		if (this->mResponse->Header().IsKeepAlive())
 		{
 			this->Clear();
 			this->ReadLine(10);
@@ -258,8 +262,8 @@ namespace http
 
 	void Session::ClosetClient(int code)
 	{
-		this->Clear();
 		this->mSocket->Close();
+		this->Clear();
 #ifdef ONLY_MAIN_THREAD
 		this->mComponent->OnClientError(this->mSockId, code);
 #else

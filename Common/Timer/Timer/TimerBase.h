@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include"Util/Tools/Guid.h"
-#include"Util/Tools/TimeHelper.h"
+
 
 namespace acs
 {
@@ -9,7 +9,7 @@ namespace acs
     {
     public:
         friend class TimerComponent;
-        explicit TimerBase(long long ms);
+        explicit TimerBase(long long id, int ms);
 
         virtual ~TimerBase() = default;
 
@@ -17,10 +17,11 @@ namespace acs
         virtual void Invoke() = 0;
     public:
 		inline long long GetTimerId() const { return mTimerId; }
-		inline void Refresh() { this->mTargetTime += this->mInterval; }
+    	inline int GetTimeoutMS() const { return this->mInterval; }
         inline long long GetTargetTime() const { return this->mTargetTime; }
+    	inline void Refresh(long long nowTime) { this->mTargetTime = nowTime + this->mInterval; }
 	protected:
-		long long mInterval;
+		int mInterval;
 		long long mTimerId;
 		long long mTargetTime;
 	};

@@ -10,17 +10,16 @@ namespace acs
 {
 	int LuaRouter::Send(lua_State* L)
 	{
+		size_t count = 0;
 		int code = XCode::Ok;
+		static std::string func;
 		int id = (int)luaL_checkinteger(L, 1);
-		std::unique_ptr<rpc::Message> message;
-		const std::string func(luaL_checkstring(L, 2));
+		const char * str = luaL_checklstring(L, 2, &count);
+		static RouterComponent * routerComponent = App::Get<RouterComponent>();
 		do
 		{
-			static RouterComponent * routerComponent = nullptr;
-			if(routerComponent == nullptr)
-			{
-				routerComponent = acs::App::Get<RouterComponent>();
-			}
+			func.assign(str, count);
+			std::unique_ptr<rpc::Message> message;
 			code = acs::App::Inst()->MakeMessage(L, 3, func, message);
 			if(code != XCode::Ok)
 			{
@@ -36,25 +35,48 @@ namespace acs
 
 	int LuaRouter::Call(lua_State* L)
 	{
-		lua_pushthread(L);
+		size_t count = 0;
 		int code = XCode::Ok;
+		static std::string func;
 		int id = (int)luaL_checkinteger(L, 1);
-		std::unique_ptr<rpc::Message> message;
-		const std::string func(luaL_checkstring(L, 2));
+		const char * str = luaL_checklstring(L, 2, &count);
+		static RouterComponent * routerComponent = App::Get<RouterComponent>();
 		do
 		{
-			static RouterComponent * routerComponent = nullptr;
-			if(routerComponent == nullptr)
-			{
-				routerComponent = acs::App::Get<RouterComponent>();
-			}
+			func.assign(str, count);
+			std::unique_ptr<rpc::Message> message;
 			code = acs::App::Inst()->MakeMessage(L, 3, func, message);
 			if(code != XCode::Ok)
 			{
 				break;
 			}
+			lua_pushthread(L);
 			message->SetSockId(id);
 			return routerComponent->LuaCall(L, id, message);
+		}
+		while(false);
+		lua_pushinteger(L, code);
+		return 1;
+	}
+
+	int LuaRouter::Broadcast(lua_State* L)
+	{
+		size_t count = 0;
+		int code = XCode::Ok;
+		static std::string func;
+		const char * str = luaL_checklstring(L, 1, &count);
+		static RouterComponent * routerComponent = App::Get<RouterComponent>();
+		do
+		{
+			func.assign(str, count);
+			std::unique_ptr<rpc::Message> message;
+			code = acs::App::Inst()->MakeMessage(L, 2, func, message);
+			if(code != XCode::Ok)
+			{
+				break;
+			}
+			lua_pushthread(L);
+			routerComponent->Broadcast(message);
 		}
 		while(false);
 		lua_pushinteger(L, code);

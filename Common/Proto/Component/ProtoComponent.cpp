@@ -89,12 +89,12 @@ namespace acs
 	{
         const std::string & path = this->mConfig.path;
         const std::string fullPath(fmt::format("{0}/{1}", path, fileName));
-		if(!help::fs::FileIsExist(fullPath))
+		if(!help::fs::FileIsExist(fullPath.c_str()))
 		{
 			LOG_ERROR("not proto file {}", fullPath);
 			return false;
 		}
-		long long lastWriteTime = help::fs::GetLastWriteTime(fullPath);
+		long long lastWriteTime = help::fs::GetLastWriteTime(fullPath.c_str());
 
 		auto iter = this->mFiles.find(fileName);
         if(iter != this->mFiles.end() && iter->second == lastWriteTime)
@@ -162,6 +162,10 @@ namespace acs
 
 	pb::Message * ProtoComponent::Temp(const std::string& name)
 	{
+	    if(name.empty())
+	    {
+	        return nullptr;
+	    }
 		auto iter = this->mTempMessages.find(name);
 		if(iter!= this->mTempMessages.end())
 		{
@@ -310,6 +314,8 @@ namespace acs
 
 	void ProtoComponent::OnDestroy()
 	{
+		this->mStaticMessageMap.clear();
+		this->mDynamicMessageMap.clear();
 		google::protobuf::ShutdownProtobufLibrary();
 	}
 }

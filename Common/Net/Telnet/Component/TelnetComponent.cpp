@@ -6,16 +6,19 @@
 #include "Entity/Actor/App.h"
 #include "Server/Config/CodeConfig.h"
 #include "Router/Component/RouterComponent.h"
+#include "Event/Component/EventProxyComponent.h"
 namespace acs
 {
 	TelnetComponent::TelnetComponent()
 	{
 		this->mRouter = nullptr;
+		this->mEventProxy = nullptr;
 	}
 
 	bool TelnetComponent::LateAwake()
 	{
 		this->mRouter = this->GetComponent<RouterComponent>();
+		this->mEventProxy = this->GetComponent<EventProxyComponent>();
 		return true;
 	}
 
@@ -44,95 +47,12 @@ namespace acs
 		}
 	}
 
-	bool TelnetComponent::Send(int id, const std::string& msg)
+	void TelnetComponent::OnMessage(int id, telnet::Request* request, telnet::Response* response) noexcept
 	{
-		auto iter = this->mClients.find(id);
-		if(iter == this->mClients.end())
+		std::string eventId = fmt::format("on_{}", request->GetCmd());
+		if(this->mEventProxy->Trigger(eventId, request, response) < 0)
 		{
-			return false;
-		}
-		iter->second->Send(std::make_unique<telnet::Response>(msg));
-		return true;
-	}
 
-	bool TelnetComponent::Send(int id, std::unique_ptr<telnet::Response> response)
-	{
-		auto iter = this->mClients.find(id);
-		if(iter == this->mClients.end())
-		{
-			return false;
 		}
-		iter->second->Send(std::move(response));
-		return true;
-	}
-
-	void TelnetComponent::OnMessage(int id, telnet::Request* request, telnet::Response* ) noexcept
-	{
-		const std::string & cmd = request->GetCmd();
-		if(cmd == "quit")
-		{
-			auto iter = this->mClients.find(id);
-			if(iter != this->mClients.end())
-			{
-				iter->second->StartClose();
-			}
-			return;
-		}
-		this->mApp->StartCoroutine([request, this, id, cmd]()
-		{
-			std::string response("[error] unknown cmd");
-
-			json::w::Document document;
-			{
-				document.Add("cmd", cmd);
-				if(!request->GetArgs().empty())
-				{
-					std::unique_ptr<json::w::Value> jsonArray = document.AddArray("args");
-					for(const std::string & args : request->GetArgs())
-					{
-						jsonArray->Push(args);
-					}
-				}
-			}
-			int code = XCode::Ok;
-			std::string message;
-			do
-			{
-				std::unique_ptr<rpc::Message> rpcMessage = this->mApp->Make("TelnetSystem.Run");
-				if(rpcMessage == nullptr)
-				{
-					code = XCode::MakeTcpRequestFailure;
-					break;
-				}
-				document.Serialize(rpcMessage->Body());
-				int nodeId = this->mApp->GetNodeId();
-				std::unique_ptr<rpc::Message> rpcResponse = this->mRouter->Call(nodeId, rpcMessage);
-				if(rpcResponse == nullptr)
-				{
-					code = XCode::Failure;
-					message = "rpc response fail";
-					break;
-				}
-				code = rpcResponse->GetCode();
-				if(code == XCode::Ok)
-				{
-					message = rpcResponse->GetBody();
-					break;
-				}
-			}
-			while(false);
-			std::unique_ptr<telnet::Response> telnetResponse = std::make_unique<telnet::Response>();
-			{
-				std::string name = CodeConfig::Inst()->GetDesc(code);
-				telnetResponse->Append(fmt::format("=============== [{}] ===============", name));
-				if(!message.empty())
-				{
-					telnetResponse->Append(fmt::format("\r\n{}", message));
-					telnetResponse->Append(fmt::format("\r\n=============== [{}ms] ===============", request->GetCostTime()));
-				}
-			}
-			this->Send(id, std::move(telnetResponse));
-			delete request;
-		});
 	}
 }

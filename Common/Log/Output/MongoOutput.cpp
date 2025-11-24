@@ -33,9 +33,9 @@ namespace custom
 		{
 			document.Add("file", logInfo.File);
 		}
-		if(!logInfo.Stack.empty())
+		if(logInfo.Stack != nullptr)
 		{
-			document.Add("stack", logInfo.Stack);
+			document.Add("stack", logInfo.Stack->c_str(), logInfo.Stack->size());
 		}
 		document.Add("time", time);
 		if(!document.FromByJson(logInfo.Content))
@@ -60,6 +60,8 @@ namespace custom
 			case custom::LogLevel::Fatal:
 				document.Add("level", "fatal");
 				break;
+			default:
+				document.Add("level", name);
 		}
 		document.Add("t", help::Time::NowSec());
 		std::string table = help::Time::GetYearMonthDayString();

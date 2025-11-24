@@ -2,25 +2,25 @@
 // Created by zmhy0073 on 2022/10/13.
 //
 
-#include"LoginSystem.h"
-#include"Entity/Actor/App.h"
-#include"Core/Event/IEvent.h"
-#include"Lua/Module/LuaModule.h"
+#include "LoginSystem.h"
+#include "Event/Base/EventID.h"
+#include "Lua/Module/LuaModule.h"
 #include "Common/Component/PlayerComponent.h"
-
+#include "Event/Component/EventProxyComponent.h"
 namespace acs
 {
 	LoginSystem::LoginSystem()
 	{
 		this->mPlayerMgr = nullptr;
+		this->mEventProxy = nullptr;
 	}
 
 	bool LoginSystem::OnInit()
 	{
 		BIND_RPC_METHOD(LoginSystem::Login);
 		BIND_RPC_METHOD(LoginSystem::Logout);
-		this->mApp->GetComponents(this->mLoginComponents);
 		this->mPlayerMgr = this->GetComponent<PlayerComponent>();
+		this->mEventProxy = this->GetComponent<EventProxyComponent>();
 		return true;
 	}
 
@@ -36,16 +36,11 @@ namespace acs
 				for (int index = 0; index < request.list_size(); index++)
 				{
 					const s2s::server_info & serverInfo = request.list(index);
-					player->AddServer(serverInfo.name(), serverInfo.id());
+					player->AddNode(serverInfo.name(), serverInfo.id());
 				}
 			}
 		}
-		Lua::LuaModule * luaModule = this->GetLuaModule();
-		if(luaModule != nullptr && luaModule->HasFunction("OnLogin"))
-		{
-			luaModule->Await("OnLogin", playerId);
-		}
-		help::PlayerLoginEvent::Trigger(playerId, sockId);
+		this->mEventProxy->Trigger(event::OnPlayerLogin, playerId);
 		return XCode::Ok;
 	}
 
@@ -57,18 +52,8 @@ namespace acs
 		{
 			return XCode::NotFindUser;
 		}
-		for(ILogin * loginComponent : this->mLoginComponents)
-		{
-			loginComponent->OnLogout(playerId);
-		}
-		Lua::LuaModule * luaModule = this->GetLuaModule();
-		if(luaModule != nullptr && luaModule->HasFunction("OnLogout"))
-		{
-			luaModule->Await("OnLogout", playerId);
-		}
-		int sockId = player->GetClientID();
 		this->mPlayerMgr->Remove(playerId, true);
-		help::PlayerLogoutEvent::Trigger(playerId, sockId);
+		this->mEventProxy->Trigger(event::OnPlayerLogout, playerId);
 		return XCode::Ok;
     }
 }

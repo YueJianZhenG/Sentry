@@ -4,33 +4,22 @@
     "server": {
         "rpc": [
             "NodeSystem",
-            "GateSystem",
             "PubSubSystem",
-            "ChatSystem",
             "LoginSystem",
-            "ChatComponent",
             "Example",
             "TelnetSystem",
-            "RegistryService",
-            "MongoReadProxy",
-            "MongoWriteProxy",
-            "MysqlReadProxy",
-            "MysqlWriteProxy",
-            "PgsqlReadProxy",
-            "PgsqlWriteProxy"
-
+            "SceneSystem",
+            "RegistryService"
         ],
         "http" : [
             "Admin",
             "Watch",
             "LogMgr",
-            "MongoBackup",
             "QuickSDK",
             "FileUpload",
             "ResourceMgr",
             "Collection",
             "Demo",
-            "MysqlBackup",
             "DBHttpService"
         ],
         "component": [
@@ -41,19 +30,11 @@
             "HttpWebComponent",
             "WXNoticeComponent",
             "WatchComponent",
-            "KcpComponent",
-            "UdpComponent",
-            "WsClientComponent",
-            "RedisComponent",
-            "MysqlDBComponent",
-            "MongoDBComponent",
-            "AliOssComponent",
             "SqliteComponent",
-            "PgsqlDBComponent",
             "TelnetComponent",
-            "RedisSubComponent",
             "PlayerComponent",
-            "MeiliSearchComponent"
+            "NotifyComponent",
+            "TcpClientComponent"
         ]
     }
 }

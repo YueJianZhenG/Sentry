@@ -92,6 +92,7 @@ namespace acs
 			response.SetError(mysqlResponse->error.front());
 			return XCode::Failure;
 		}
+		response.ClearHeadAndBody();
 		json::w::Document jsonArray(true);
 		for(const std::string & json : mysqlResponse->contents)
 		{
@@ -132,6 +133,7 @@ namespace acs
 			response.SetError(mysqlResponse->GetBuffer());
 			return XCode::Failure;
 		}
+		response.ClearHeadAndBody();
 		json::w::Document document(true);
 		for(const std::string & result : mysqlResponse->contents)
 		{
@@ -165,6 +167,7 @@ namespace acs
 			response.SetError(mysqlResponse->GetBuffer());
 			return XCode::Failure;
 		}
+		response.ClearHeadAndBody();
 		json::w::Document jsonArray(true);
 		for(const std::string & result : mysqlResponse->contents)
 		{
@@ -202,6 +205,7 @@ namespace acs
 			response.SetError(mysqlResponse->error.front());
 			return XCode::Failure;
 		}
+		response.ClearHeadAndBody();
 		if(!mysqlResponse->contents.empty())
 		{
 			const std::string & json = mysqlResponse->contents.front();
@@ -244,6 +248,7 @@ namespace acs
 			response.SetError(mysqlResponse->GetBuffer());
 			return XCode::Failure;
 		}
+		response.ClearHeadAndBody();
 		json::w::Document document(true);
 		for(const std::string & result : mysqlResponse->contents)
 		{
@@ -272,6 +277,7 @@ namespace acs
 			response.SetError(mysqlResponse->GetBuffer());
 			return XCode::Failure;
 		}
+		response.ClearHeadAndBody();
 		if(!mysqlResponse->contents.empty())
 		{
 			response.SetContent(rpc::proto::json, mysqlResponse->contents.front());
@@ -295,11 +301,12 @@ namespace acs
 		std::unique_ptr<mysql::Response> mysqlResponse = this->mMysql->Run(mysqlRequest);
 		LOG_ERROR_RETURN_CODE(mysqlResponse != nullptr, XCode::Failure);
 
-		if(!mysqlResponse->IsOk())
+		if(mysqlResponse->HasError())
 		{
 			response.SetError(mysqlResponse->GetBuffer());
 			return XCode::Failure;
 		}
+		response.ClearHeadAndBody();
 		json::w::Document jsonArray(true);
 		for(const std::string & result : mysqlResponse->contents)
 		{
@@ -330,6 +337,7 @@ namespace acs
 				response.SetError(mysqlResponse->GetBuffer());
 				return XCode::Failure;
 			}
+			response.ClearHeadAndBody();
 			json::w::Document jsonArray(true);
 			for(const std::string & result : mysqlResponse->contents)
 			{

@@ -8,10 +8,11 @@
 #include <unistd.h>
 #endif
 
-#include<regex>
-#include"fmt.h"
-#include"DirectoryHelper.h"
-
+#include <regex>
+#include "fmt.h"
+#include "DirectoryHelper.h"
+#include "Util/Tools/String.h"
+#include "Util/Core/Com.h"
 #pragma warning(disable : 4996)
 
 
@@ -52,47 +53,44 @@ namespace help
 		{
 			return false;
 		}
-
-		double fileSize = (double)size;
-		if(fileSize >= help::fs::GB)
-		{
-			double val = fileSize / help::fs::GB;
-			str = fmt::format("{:.1f}GB", (float)val);
-		}
-		else if(fileSize >= help::fs::MB)
-		{
-			double val = fileSize / help::fs::MB;
-			str = fmt::format("{:.1f}MB", (float)val);
-		}
-		else if(fileSize >= help::fs::KB)
-		{
-			double val = fileSize / help::fs::KB;
-			str = fmt::format("{:.1f}KB", (float)val);
-		}
-		else
-		{
-			str = fmt::format("{}B", fileSize);
-		}
+		str = help::com::BytesToString(size);
 		return true;
 	}
 
-	bool fs::FileIsExist(const std::string& path)
+	bool fs::FileIsExist(const std::string & str)
 	{
 #ifdef _WIN32
-		return _access(path.c_str(), 0) == 0;
+		if(_access(str.c_str(), 0) != 0)
+		{
+			std::string path = help::text::Utf8ToGB2312(str);
+			return _access(path.c_str(), 0) == 0;
+		}
+		return true;
 #else
-		return access(path.c_str(), F_OK) == 0;
+		return access(str.c_str(), F_OK) == 0;
 #endif
 	}
 
-	long long fs::GetLastWriteTime(const std::string& path)
+	long long fs::GetLastWriteTime(const std::string & str)
 	{
 		struct stat result{};
-		if (stat(path.c_str(), &result) == 0)
+#ifdef _WIN32
+		if (stat(str.c_str(), &result) != 0)
 		{
-			return result.st_mtime;
+			std::string path = help::text::Utf8ToGB2312(str);
+			if (stat(path.c_str(), &result) != 0)
+			{
+				return 0;
+			}
 		}
-		return 0;
+#else
+		if (stat(str.c_str(), &result) != 0)
+		{
+			return 0;
+		}
+#endif
+
+		return result.st_mtime;
 	}
 
 	bool fs::GetFileName(const std::string& path, std::string& name)
@@ -120,21 +118,22 @@ namespace help
 		return false;
 	}
 
-	bool fs::ReadTxtFile(const std::string& path, std::string& outFile)
+	bool fs::ReadTxtFile(const std::string& str, std::string& outFile)
 	{
 		std::ifstream fs;
-		fs.open(path, std::ios::in | std::ios::binary);
+#ifdef __OS_WIN__
+		fs.open(str, std::ios::in | std::ios::binary);
 		if(!fs.is_open())
 		{
-#ifdef __OS_WIN__
-			fs.open(path, std::ios::in);
-			if (!fs.is_open())
-			{
-				return false;
-			}
+			std::string path = help::text::Utf8ToGB2312(str);
+			fs.open(path, std::ios::in | std::ios::binary);
+		}
 #else
-			return false;
+		fs.open(str, std::ios::in | std::ios::binary);
 #endif
+		if(!fs.is_open())
+		{
+			return false;
 		}
 		outFile.clear();
 		char buffer[128] = { 0 };
@@ -152,10 +151,19 @@ namespace help
 		return true;
 	}
 
-	bool fs::ReadTxtFile(const std::string& path, std::vector<std::string>& outLines, char delim)
+	bool fs::ReadTxtFile(const std::string& str, std::vector<std::string>& outLines, char delim)
 	{
-		std::fstream fs;
-		fs.open(path, std::ios::in | std::ios::binary);
+		std::ifstream fs;
+#ifdef __OS_WIN__
+		fs.open(str, std::ios::in | std::ios::binary);
+		if(!fs.is_open())
+		{
+			std::string path = help::text::Utf8ToGB2312(str);
+			fs.open(path, std::ios::in | std::ios::binary);
+		}
+#else
+		fs.open(str, std::ios::in | std::ios::binary);
+#endif
 		if (fs.is_open())
 		{
 			std::string tempString;
@@ -189,6 +197,32 @@ namespace help
 		fs.write(fileContent.c_str(), (std::streamsize)fileContent.size());
 		fs.close();
 		return true;
+	}
+
+	bool fs::Open(std::ifstream& fs, const std::string& path, std::ios_base::openmode flag)
+	{
+		fs.open(path, flag);
+		if(!fs.is_open())
+		{
+#ifdef __OS_WIN__
+			std::string str = help::text::Utf8ToGB2312(path);
+			fs.open(str, flag);
+#endif
+		}
+		return fs.is_open();
+	}
+
+	bool fs::Open(std::ofstream& fs, const std::string& path, std::ios_base::openmode flag)
+	{
+		fs.open(path, flag);
+		if(!fs.is_open())
+		{
+#ifdef __OS_WIN__
+			std::string str = help::text::Utf8ToGB2312(path);
+			fs.open(str, flag);
+#endif
+		}
+		return fs.is_open();
 	}
 
 	bool fs::ChangeName(const std::string& path, const std::string& name)

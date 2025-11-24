@@ -1,8 +1,7 @@
 ﻿#pragma once
-#include"Core/Map/HashMap.h"
-#include"Rpc/Common/Message.h"
-#include"Network/Tcp/Client.h"
-#include"Entity/Component/IComponent.h"
+#include "Rpc/Common/Message.h"
+#include "Network/Tcp/Client.h"
+#include "Entity/Component/IComponent.h"
 using namespace tcp;
 
 namespace rpc

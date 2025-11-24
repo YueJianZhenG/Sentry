@@ -8,7 +8,9 @@
 #ifndef ONLY_MAIN_THREAD
 #include"Core/Thread/ThreadSync.h"
 #endif
+#include"Util/Ssl/SslCert.h"
 #include"Util/Tools/TimeHelper.h"
+#include"Http/Component/NotifyComponent.h"
 #include"Server/Component/ThreadComponent.h"
 
 namespace acs
@@ -53,6 +55,8 @@ namespace acs
 #ifdef __ENABLE_OPEN_SSL__
 		if (!config.cert.empty() && !config.key.empty())
 		{
+			LOG_CHECK_RET_FALSE(help::ssl::Decode(config.cert, this->mCertInfo));
+			LOG_DEBUG("[{}] {}=>{}", this->mCertInfo.CommonName, this->mCertInfo.NotBefore, this->mCertInfo.NotAfter);
 			try
 			{
 				this->mSslCtx.use_certificate_chain_file(config.cert);
@@ -145,15 +149,16 @@ namespace acs
 
 	void ListenerComponent::Accept()
 	{
-		if (this->mAcceptor == nullptr)
-		{
-			return;
-		}
 		tcp::Socket* sock = this->CreateSocket();
 		auto callback = [this, sock](const Asio::Code& code)
 		{
 			do
 			{
+				if(code == asio::error::operation_aborted)
+				{
+					sock->Destroy();
+					return;
+				}
 				if (code.value() != Asio::OK || !sock->Init())
 				{
 					sock->Destroy();
@@ -202,6 +207,28 @@ namespace acs
 			sock->Destroy();
 		}
 	}
+#ifdef __ENABLE_OPEN_SSL__
+	void ListenerComponent::OnSecondUpdate(int tick) noexcept
+	{
+		if(!this->mConfig.cert.empty() && tick % 10 == 0)
+		{
+			long long nowTime = help::Time::NowSec();
+			if(nowTime - this->mCertInfo.ExpTime >= help::Time::DaySecond * 7) //还有七天到期就通知
+			{
+				NotifyComponent * notifyComponent = this->GetComponent<NotifyComponent>();
+				if(notifyComponent != nullptr)
+				{
+					notify::TemplateCard templateCard;
+					templateCard.title = "SSL证书到期通知";
+					templateCard.data.emplace_back("域名", this->mCertInfo.CommonName);
+					templateCard.data.emplace_back("生效时间", this->mCertInfo.NotBefore);
+					templateCard.data.emplace_back("过期时间", this->mCertInfo.NotAfter, "red");
+					notifyComponent->SendToWeChat(templateCard);
+				}
+			}
+		}
+	}
+#endif
 
 	bool ListenerComponent::StopListen()
 	{

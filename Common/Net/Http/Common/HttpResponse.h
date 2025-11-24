@@ -37,12 +37,13 @@ namespace http
 		inline const T * To() const;
 		inline const Content * GetBody() const { return this->mBody.get(); }
 		inline std::unique_ptr<Content> MoveBody() { return std::move(this->mBody); }
+
 	public:
 		void SetCode(HttpStatus code);
 		void Json(const std::string & json);
 		void Json(const char * json, size_t);
 		void Text(const char * text, size_t);
-		void Json(json::w::Document & document);
+		void SetContent(json::w::Document & document);
 		bool OpenOrCreateFile(const std::string & path);
 		bool File(const std::string & type, const std::string & path);
 		void SetContent(const std::string & type, const std::string& str);

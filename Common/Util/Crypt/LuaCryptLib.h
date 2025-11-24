@@ -10,6 +10,7 @@ namespace lua
     namespace md5
     {
 		int Hex(lua_State *lua);
+		int File(lua_State *lua);
         int ToString(lua_State *lua);
     }
 

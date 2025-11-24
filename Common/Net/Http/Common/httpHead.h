@@ -33,8 +33,9 @@ namespace http
 		int OnSendMessage(std::ostream &os) final;
 	public:
 		void Clear() final;
-		bool KeepAlive() const;
-		void SetKeepAlive(bool keep, int timeout);
+		void SetClose();
+		bool IsKeepAlive() const;
+		void SetKeepAlive(int timeout);
 		bool GetContentType(std::string & type) const;
 		bool GetContentLength(long long & length) const;
 		int OnRecvMessage(std::istream &os, size_t size) final;

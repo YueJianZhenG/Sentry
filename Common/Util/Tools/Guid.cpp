@@ -3,47 +3,48 @@
 //
 
 #include "Guid.h"
+
+#include "Entity/Actor/App.h"
 #include "Util/Tools/TimeHelper.h"
 
 namespace help
 {
-	int ID::mIndex1 = 0;
-	short ID::mIndex2 = 0;
-	long long ID::mLastTime = 0;
-}
-namespace help
-{
-
-	long long ID::Create()
+	long long ID::Gen()
 	{
-		long long nowTime = Time::NowSec();
-		if (nowTime != mLastTime)
+		static int index = 0;
+		static long long lastTime = 0;
+		long long nowTime = Time::NowTimeMS / 1000;
+		if (nowTime != lastTime)
 		{
-			mIndex1 = 0;
-			mLastTime = nowTime;
+			index = 0;
+			lastTime = nowTime;
 		}
-		return (mLastTime << 31 | (++mIndex1));
+		return lastTime << 31 | (++index);
 	}
 
-	long long ID::Create(int id)
+
+	long long ID::Make()
 	{
-		long long nowTime = Time::NowSec();
-		if (nowTime != mLastTime)
+		static int index = 0;
+		static long long lastTime = 0;
+		long long nowTime = Time::NowTimeMS / 1000;
+		static int nodeID = acs::App::Inst()->GetNodeId();
+		if (nowTime != lastTime)
 		{
-			mIndex2 = 0;
-			mLastTime = nowTime;
+			index = 0;
+			lastTime = nowTime;
 		}
-		return mLastTime << 31 | (int)id << 16 | (++mIndex2);
+		return lastTime << 31 | nodeID << 16 | (++index);
 	}
 
-	long long ID::Create(int id, int count)
+	long long ID::Make(int count)
 	{
 		int num = 1;
 		for (int index = 0; index < count; index++)
 		{
 			num *= 10;
 		}
-		long long guid = ID::Create(id);
+		long long guid = ID::Gen();
 		return guid % num;
 	}
 }

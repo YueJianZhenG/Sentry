@@ -20,6 +20,7 @@ namespace Lua
 
 	int Coroutine::Sleep(lua_State* lua)
 	{
+		unsigned int ms = (unsigned int)luaL_checkinteger(lua, 1);
 		static TimerComponent* timerComponent = nullptr;
 		if (timerComponent == nullptr)
 		{
@@ -31,13 +32,7 @@ namespace Lua
 			}
 		}
 
-		if (!lua_isnumber(lua, 1))
-		{
-			luaL_error(lua, "first parameter must number");
-			return 0;
-		}
 		lua_pushthread(lua);
-		unsigned int ms = (unsigned int)luaL_checkinteger(lua, 1);
 		LuaWaitTaskSource* luaRpcTaskSource = new LuaWaitTaskSource(lua);
 		timerComponent->Timeout(ms, [luaRpcTaskSource]()
 		{
@@ -66,7 +61,7 @@ namespace Lua
 					{
 						logInfo->Level = custom::LogLevel::Error;
 						logInfo->Content = fmt::format("Error during coroutine resume: {}", errorMsg);
-						Debug::Log(std::move(logInfo));
+						Debug::Log(logInfo);
 					}
 					lua_pop(cor, 1);
 				}

@@ -10,19 +10,20 @@
     "ChatSystem.Request" : {
         "async" : false,
         "client": true,
+        "proto" : "pb",
         "request" : "google.protobuf.Struct"
     },
     "ChatSystem.OnChat": {
-        "proto" : "json",
+        "proto" : "pb",
         "async": true,
         "client": true,
         "request": "c2s.chat.request"
     },
     "ChatSystem.OnSleep": {
-        "proto" : "json",
         "async": true
     },
     "ChatComponent.OnChat" : {
+        "proto" : "pb",
         "to_client" : true,
         "request": "c2s.chat.request"
     }

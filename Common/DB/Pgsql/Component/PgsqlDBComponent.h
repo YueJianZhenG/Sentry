@@ -16,8 +16,9 @@ namespace acs
 	public:
 		explicit PgsqlTask(int taskId) :  IRpcTask<pgsql::Response>(taskId) { }
 	public:
+		inline void OnTimeout() final;
 		inline std::unique_ptr<pgsql::Response> Await();
-		inline void OnResponse(std::unique_ptr<pgsql::Response> response) noexcept final;
+		inline void OnResponse(std::unique_ptr<pgsql::Response>& response) noexcept final;
 	private:
 		std::unique_ptr<pgsql::Response> mMessage;
 	};
@@ -26,7 +27,15 @@ namespace acs
 		this->YieldTask();
 		return std::move(this->mMessage);
 	}
-	inline void PgsqlTask::OnResponse(std::unique_ptr<pgsql::Response> response) noexcept
+
+	inline void PgsqlTask::OnTimeout()
+	{
+		this->mMessage = std::make_unique<pgsql::Response>();
+		this->mMessage->error.emplace_back("time out");
+		this->ResumeTask();
+	}
+
+	inline void PgsqlTask::OnResponse(std::unique_ptr<pgsql::Response>& response) noexcept
 	{
 		this->mMessage = std::move(response);
 		this->ResumeTask();

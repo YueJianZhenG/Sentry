@@ -18,17 +18,16 @@ namespace acs
 		template<typename T> T Await();
 		static int SetResult(lua_State * lua);
 	private:
-		int ref;
+		int luaRef;
+		int valRef;
 		lua_State * mLua;
 	};
 
 	template<typename T>
 	T WaitLuaTaskSource::Await()
 	{
-		if(this->YieldTask())
-		{
-			lua_rawgeti(mLua, LUA_REGISTRYINDEX, ref);
-		}
+		this->YieldTask();
+		lua_rawgeti(mLua, LUA_REGISTRYINDEX, valRef);
 		return Lua::Parameter::Read<T>(this->mLua, -1);
 	}
 }

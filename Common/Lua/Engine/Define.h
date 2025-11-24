@@ -1,6 +1,3 @@
-//
-// Created by MyPC on 2023/4/12.
-//
 
 #pragma once
 
@@ -14,5 +11,6 @@ extern "C" {
 class ILuaWrite
 {
 public:
+	virtual  ~ILuaWrite() = default;
 	virtual int WriteToLua(lua_State* lua) const = 0;
 };

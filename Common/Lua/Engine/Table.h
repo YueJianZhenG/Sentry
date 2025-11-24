@@ -1,6 +1,6 @@
 #pragma once
-
-#include"Lua/Engine/Function.h"
+#include <vector>
+#include "Lua/Engine/Function.h"
 namespace Lua
 {
 	class Table
@@ -16,9 +16,171 @@ namespace Lua
 
 	 public:
 		inline int Length();
-		template<typename T>
-		inline T GetMember(const char* name);
 
+		inline bool Get(const char * field, std::string & value)
+		{
+			lua_rawgeti(this->mLuaEnv, LUA_REGISTRYINDEX, this->ref);
+			if (!lua_istable(this->mLuaEnv, -1))
+			{
+				lua_pop(this->mLuaEnv, 1);
+				return false;
+			}
+			lua_getfield(this->mLuaEnv, -1, field);
+			if(!lua_isstring(this->mLuaEnv, -1))
+			{
+				lua_pop(this->mLuaEnv, 2);
+				return false;
+			}
+			size_t count = 0;
+			const char * str = luaL_tolstring(this->mLuaEnv, -1, &count);
+			value.assign(str, count);
+			lua_pop(this->mLuaEnv, 2);
+			return true;
+		}
+
+		inline bool Get(const char * field, std::vector<std::string> & value)
+		{
+			lua_rawgeti(this->mLuaEnv, LUA_REGISTRYINDEX, this->ref);
+			if (!lua_istable(this->mLuaEnv, -1))
+			{
+				lua_pop(this->mLuaEnv, 1);
+				return false;
+			}
+
+			lua_getfield(this->mLuaEnv, -1, field);
+			if (!lua_istable(this->mLuaEnv, -1))
+			{
+				lua_pop(this->mLuaEnv, 2);
+				return false;
+			}
+
+			lua_pushnil(this->mLuaEnv);
+			while (lua_next(this->mLuaEnv, -2) != 0)
+			{
+				if (!lua_isstring(this->mLuaEnv, -1))
+				{
+					lua_pop(this->mLuaEnv, 3);
+					return false;
+				}
+
+				size_t len = 0;
+				const char* str = lua_tolstring(this->mLuaEnv, -1, &len);
+				value.emplace_back(str, len);
+
+				lua_pop(this->mLuaEnv, 1);
+			}
+
+			lua_pop(this->mLuaEnv, 2);
+			return true;
+		}
+
+		template<typename T>
+		inline std::enable_if_t<std::is_integral<T>::value, bool> Get(const char * field, std::vector<T> & value)
+		{
+			lua_rawgeti(this->mLuaEnv, LUA_REGISTRYINDEX, this->ref);
+			if (!lua_istable(this->mLuaEnv, -1))
+			{
+				lua_pop(this->mLuaEnv, 1);
+				return false;
+			}
+
+			lua_getfield(this->mLuaEnv, -1, field);
+			if (!lua_istable(this->mLuaEnv, -1))
+			{
+				lua_pop(this->mLuaEnv, 2);
+				return false;
+			}
+
+			lua_pushnil(this->mLuaEnv);
+			while (lua_next(this->mLuaEnv, -2) != 0)
+			{
+				if (!lua_isinteger(this->mLuaEnv, -1))
+				{
+					lua_pop(this->mLuaEnv, 3);
+					return false;
+				}
+				T number = (T)lua_tointeger(this->mLuaEnv, -1);
+				value.emplace_back(number);
+				lua_pop(this->mLuaEnv, 1);
+			}
+			lua_pop(this->mLuaEnv, 2);
+			return true;
+		}
+
+		template<typename T>
+		inline std::enable_if_t<std::is_floating_point<T>::value, bool> Get(const char * field, std::vector<T> & value)
+		{
+			lua_rawgeti(this->mLuaEnv, LUA_REGISTRYINDEX, this->ref);
+			if (!lua_istable(this->mLuaEnv, -1))
+			{
+				lua_pop(this->mLuaEnv, 1);
+				return false;
+			}
+
+			lua_getfield(this->mLuaEnv, -1, field);
+			if (!lua_istable(this->mLuaEnv, -1))
+			{
+				lua_pop(this->mLuaEnv, 2);
+				return false;
+			}
+
+			lua_pushnil(this->mLuaEnv);
+			while (lua_next(this->mLuaEnv, -2) != 0)
+			{
+				if (!lua_isnumber(this->mLuaEnv, -1))
+				{
+					lua_pop(this->mLuaEnv, 3);
+					return false;
+				}
+				T number = (T)lua_tonumber(this->mLuaEnv, -1);
+				value.emplace_back(number);
+				lua_pop(this->mLuaEnv, 1);
+			}
+			lua_pop(this->mLuaEnv, 2);
+			return true;
+		}
+
+
+		template<typename T>
+		inline std::enable_if_t<std::is_integral<T>::value, bool> Get(const char * field, T & value)
+		{
+			lua_rawgeti(this->mLuaEnv, LUA_REGISTRYINDEX, this->ref);
+			if (!lua_istable(this->mLuaEnv, -1))
+			{
+				lua_pop(this->mLuaEnv, 1);
+				return false;
+			}
+			lua_getfield(this->mLuaEnv, -1, field);
+			if (!lua_isinteger(this->mLuaEnv, -1))
+			{
+				lua_pop(this->mLuaEnv, 2);
+				return false;
+			}
+
+			value = static_cast<T>(lua_tointeger(this->mLuaEnv, -1));
+			lua_pop(this->mLuaEnv, 2);
+			return true;
+		}
+
+		template<typename T>
+		inline std::enable_if_t<std::is_floating_point<T>::value, bool> Get(const char * field, T & value)
+		{
+			lua_rawgeti(this->mLuaEnv, LUA_REGISTRYINDEX, this->ref);
+			if (!lua_istable(this->mLuaEnv, -1))
+			{
+				lua_pop(this->mLuaEnv, 1);
+				return false;
+			}
+			lua_getfield(this->mLuaEnv, -1, field);
+			if (!lua_isnumber(this->mLuaEnv, -1))
+			{
+				lua_pop(this->mLuaEnv, 2);
+				return false;
+			}
+			value = static_cast<T>(lua_tonumber(this->mLuaEnv, -1));
+			lua_pop(this->mLuaEnv, 2);
+			return true;
+		}
 
 	 public:
 		std::unique_ptr<Table> GetTable(int index);
@@ -39,17 +201,5 @@ namespace Lua
 		}
 		lua_len(this->mLuaEnv, -1);
 		return lua_tointeger(this->mLuaEnv, -1);
-	}
-
-	template<typename T>
-	T Table::GetMember(const char* name)
-	{
-		lua_rawgeti(this->mLuaEnv, LUA_REGISTRYINDEX, this->ref);
-		if (lua_istable(this->mLuaEnv, -1))
-		{
-			lua_getfield(this->mLuaEnv, -1, name);
-			return Parameter::Read<T>(this->mLuaEnv, -1);
-		}
-		return T();
 	}
 }

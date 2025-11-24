@@ -4,7 +4,7 @@
 
 #include "CensorFactory.h"
 #include <fstream>
-
+#include <memory>
 std::string censor::u32_to_utf8(const std::u32string& str)
 {
 	std::string result;
@@ -148,7 +148,7 @@ namespace censor
 	unsigned int Factory::Mask(std::string& utf8text, char maskChar)
 	{
 		std::u32string text = utf8_to_u32(utf8text);
-		std::vector<bool> mask(text.size(), false);
+		std::unique_ptr<bool[]> mask = std::make_unique<bool[]>(text.size());
 		Node* node = root;
 
 		for (size_t i = 0; i < text.size(); ++i)
@@ -184,7 +184,6 @@ namespace censor
 	bool Factory::Check(const std::string& utf8text)
 	{
 		std::u32string text = utf8_to_u32(utf8text);
-		std::vector<bool> mask(text.size(), false);
 		Node* node = root;
 
 		for (size_t i = 0; i < text.size(); ++i)

@@ -35,8 +35,6 @@ namespace acs
     private:
         bool LateAwake() final;
     private:
-        std::string mReadName;
-        std::string mWriteName;
         class NodeComponent * mNode;
     };
 }

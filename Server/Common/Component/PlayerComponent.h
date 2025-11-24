@@ -20,9 +20,11 @@ namespace acs
 		bool Remove(long long playerId, bool notice);
 		inline size_t PlayerCount() const { return this->mPlayers.size(); }
 	private:
+		bool LateAwake() final;
 		Actor * GetActor(long long id) final;
-		int Broadcast(std::unique_ptr<rpc::Message> message, int & count) final;
+		int Broadcast(std::unique_ptr<rpc::Message>& message) final;
 	private:
+		class NodeComponent * mNode;
 		std::unordered_map<long long, std::unique_ptr<Player>> mPlayers;
 	};
 }

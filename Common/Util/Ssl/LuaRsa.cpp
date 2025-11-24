@@ -12,8 +12,12 @@ namespace lua
 {
 	int rsa::Init(lua_State* L)
 	{
-		std::string pubKey = luaL_checkstring(L, 1);
-		std::string priKey = luaL_checkstring(L, 2);
+		size_t count1, count2 = 0;
+		const char * str1 = luaL_checklstring(L, 1, &count1);
+		const char * str2 = luaL_checklstring(L, 2, &count2);
+
+		std::string pubKey(str1, count1);
+		std::string priKey(str2, count2);
 		std::unique_ptr<ssl::RSAEncryptor> rsaEncryptor = std::make_unique<ssl::RSAEncryptor>();
 		if (!rsaEncryptor->Init(pubKey, priKey))
 		{
@@ -59,8 +63,9 @@ namespace lua
 			return 0;
 		}
 		size_t size = 0;
-		std::string output;
 		const char * input = luaL_checklstring(L, 2, &size);
+
+		std::string output;
 		if(!rsaEncryptor->Decode(std::string(input, size), output))
 		{
 			return 0;

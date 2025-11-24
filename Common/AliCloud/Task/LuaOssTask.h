@@ -17,7 +17,8 @@ namespace acs
 		~LuaOssRequestTask() final;
 	public:
 		int Await() noexcept;
-		void OnResponse(std::unique_ptr<http::Response > response) noexcept final;
+		void OnTimeout() final;
+		void OnResponse(std::unique_ptr<http::Response >& response) noexcept final;
 	private:
 		int mRef;
 		lua_State * mLua;

@@ -6,7 +6,6 @@
 #include <cstring>
 #include "Define.h"
 
-#include "ClassNameProxy.h"
 #include "ParameterType.h"
 
 namespace Lua
@@ -28,11 +27,70 @@ namespace Lua
 		return curlen == raw_len;
 	}
 
+	template<typename T>
+	inline std::enable_if_t<std::is_integral<T>::value, void> push_value(lua_State * L, T value)
+	{
+		lua_pushinteger(L, value);
+	}
+
+	template<typename T>
+	inline std::enable_if_t<std::is_integral<T>::value, void> push_value(lua_State * L, const char * field, T value)
+	{
+		lua_pushstring(L, field);
+		lua_pushinteger(L, value);
+		lua_rawset(L, -3);
+	}
+
+	template<typename T>
+	inline std::enable_if_t<std::is_enum<T>::value, void> push_value(lua_State * L, const char * field, T value)
+	{
+		lua_pushstring(L, field);
+		lua_pushinteger(L, (int)value);
+		lua_rawset(L, -3);
+	}
+
+	template<typename T>
+	inline std::enable_if_t<std::is_floating_point<T>::value, void> push_value(lua_State * L, T value)
+	{
+		lua_pushnumber(L, value);
+	}
+
+	template<typename T>
+	inline std::enable_if_t<std::is_floating_point<T>::value, void> push_value(lua_State * L, const char * field, T value)
+	{
+		lua_pushstring(L, field);
+		lua_pushnumber(L, value);
+		lua_rawset(L, -3);
+	}
+
+	inline void push_value(lua_State * L, const std::string & value)
+	{
+		lua_pushlstring(L, value.c_str(), value.size());
+	}
+
+	inline void push_value(lua_State * L, const char * field, const std::string & value)
+	{
+		lua_pushstring(L, field);
+		lua_pushlstring(L, value.c_str(), value.size());
+		lua_rawset(L, -3);
+	}
+
+	inline void push_value(lua_State * L, const char * value, size_t size)
+	{
+		lua_pushlstring(L, value, size);
+	}
+
+	inline void push_value(lua_State * L, const char * field, const char * value, size_t size)
+	{
+		lua_pushstring(L, field);
+		lua_pushlstring(L, value, size);
+		lua_rawset(L, -3);
+	}
+
 	inline std::string FormatFileAndLine(const char* file, const int line)
 	{
 		int length = (int)strlen(file);
 		const char* fileName = nullptr;
-
 		for (int index = length - 1; index >= 0; index--)
 		{
 #ifdef _WIN32
@@ -165,19 +223,12 @@ namespace Lua
 	struct PtrProxy
 	{
 	 public:
-		explicit PtrProxy(T* t)
-			: mNativePtr(t), mIsDestory(false)
-		{
-		}
-
-		PtrProxy(T* t, bool isDestory)
-			: mNativePtr(t), mIsDestory(isDestory)
-		{
-		}
+		explicit PtrProxy(T* t, bool del = false)
+			: mNativePtr(t), mDelete(del) { }
 
 		~PtrProxy()
 		{
-			if(this->mIsDestory) {
+			if(this->mDelete) {
 				delete this->mNativePtr;
 			}
 		}
@@ -199,22 +250,11 @@ namespace Lua
 			new(lua_newuserdata(lua, sizeof(PtrProxy<T>))) PtrProxy<T>(data, false);
 		}
 
-		static void Destroy(lua_State* lua, int index)
-		{
-			PtrProxy<T>* p = nullptr;
-			if (lua_isuserdata(lua, index))
-			{
-				p = (PtrProxy<T>*)(lua_touserdata(lua, index));
-			}
-			if(p != nullptr)
-			{
-				p->~PtrProxy();
-			}
-		}
+
 
 	 private:
+		bool mDelete;
 		T* mNativePtr;
-		bool mIsDestory;
 	};
 
 	template<typename T>

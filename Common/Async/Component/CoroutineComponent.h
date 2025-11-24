@@ -13,9 +13,9 @@ namespace coroutine
 	public:
 		unsigned int pool;  //对象池
 #ifdef __ENABLE_SHARE_STACK__
-		unsigned int share; //共享栈数量
+		unsigned int share; //共享栈数量 kb
 #endif
-		unsigned int stack; //共享栈大小
+		unsigned int stack; //栈大小 kb
 	};
 }
 
@@ -26,35 +26,39 @@ namespace acs
 	{
 	public:
 		CoroutineComponent();
+#ifdef __ENABLE_SHARE_STACK__
+		~CoroutineComponent() override;
+#endif
 	public:
 		template<typename F, typename T, typename ... Args>
 		inline unsigned int Start(F&& f, T* o, Args&& ... args) noexcept
 		{
 			std::unique_ptr<StaticMethod> method = NewMethodProxy(std::forward<F>(f), o, std::forward<Args>(args)...);
 			{
-				return this->Invoke(std::move(method));
+				return this->Invoke(method);
 			}
 		}
 		inline unsigned int Start(std::function<void()>&& func) noexcept
 		{
-			std::unique_ptr<LambdaMethod> method = std::make_unique<LambdaMethod>(std::move(func));
+			std::unique_ptr<StaticMethod> method = std::make_unique<LambdaMethod>(std::move(func));
 			{
-				return this->Invoke(std::move(method));
+				return this->Invoke(method);
 			}
 		}
 	public:
+		bool WaitNextFrame();
+		bool YieldCoroutine();
 		bool Sleep(unsigned int ms);
-		void Resume(unsigned int id) noexcept;
-		bool YieldCoroutine() noexcept;
-		bool SetTimeout(unsigned int timeout);
-		bool YieldCoroutine(unsigned int& coroutineId) noexcept;
+		void Resume(unsigned int id);
+		bool SetTimeout(int timeout);
+		bool YieldCoroutine(unsigned int& coroutineId);
 		inline size_t Count() const { return this->mCoroutines.size(); }
 	private:
 		bool Awake() final;
 		bool OnRefresh() final;
 		bool LateAwake() final;
-		void OnSystemUpdate() noexcept final;
-		void OnLastFrameUpdate(long long) noexcept final;
+		void OnLastFrameUpdate() final;
+		void OnSystemUpdate(long long now) final;
 		void OnRecord(json::w::Document &document) final;
 	public:
 		void RunTask(tb_context_t context);
@@ -70,9 +74,9 @@ namespace acs
 #ifdef __ENABLE_SHARE_STACK__
 		void SaveStack(unsigned int id);
 #endif
-		TaskContext* Get(unsigned int id);
+		TaskContext* Get(unsigned int id) noexcept;
 		void RunCoroutine(TaskContext * coroutine);
-		unsigned int Invoke(std::unique_ptr<StaticMethod> func);
+		unsigned int Invoke(std::unique_ptr<StaticMethod> & func);
 	private:
 		size_t mCount;
 		size_t mIndex;

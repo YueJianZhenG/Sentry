@@ -27,10 +27,13 @@ namespace acs
 		ThreadComponent();
 		~ThreadComponent() final;
 	public:
-		Asio::Context& GetContext();
+		Asio::Context & GetContext();
+		Asio::Context & NewContext(const std::string & name);
+	public:
 		tcp::Socket * CreateSocket();
 		tcp::Socket * CreateSocket(const std::string & addr);
 		tcp::Socket * CreateSocket(const std::string& ip, unsigned short port);
+	public:
 #ifdef __ENABLE_OPEN_SSL__
 		tcp::Socket * CreateSocket(Asio::ssl::Context & ssl);
 #endif
@@ -52,6 +55,7 @@ namespace acs
 		thread::Config mConfig;
 		std::unique_ptr<std::thread> mThread;
 		std::vector<std::unique_ptr<custom::AsioThread>> mNetThreads;
+		std::vector<std::unique_ptr<custom::AsioThread>> mNewThreads;
 #endif
 	};
 

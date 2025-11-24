@@ -49,7 +49,7 @@ namespace acs
 		LOG_ERROR_CHECK_ARGS(request.Get("name", name))
 		std::string file = fmt::format("{}.zip", name);
 		std::string path = fmt::format("{}/{}", this->mConfig.path, file);
-		if(!help::fs::FileIsExist(path))
+		if(!help::fs::FileIsExist(path.c_str()))
 		{
 			return XCode::Failure;
 		}

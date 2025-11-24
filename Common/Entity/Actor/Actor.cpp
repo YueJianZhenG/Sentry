@@ -70,7 +70,7 @@ namespace acs
 		}
 		int id = message->SockId();
 		std::unique_ptr<rpc::Message> result = this->mRouter->Call(id, message);
-		return result != nullptr ? result->GetCode() : XCode::NetTimeout;
+		return result != nullptr ? result->Code() : XCode::NetTimeout;
 	}
 	
 	int Actor::Call(const std::string& func, const pb::Message& request) const
@@ -87,7 +87,7 @@ namespace acs
 		int id = message->SockId();
 		message->SetProto(rpc::proto::pb);
 		std::unique_ptr<rpc::Message> result = this->mRouter->Call(id, message);
-		return result != nullptr ? result->GetCode() : XCode::NetWorkError;
+		return result != nullptr ? result->Code() : XCode::NetWorkError;
 	}
 
 	int Actor::Call(const std::string& func, pb::Message * response) const
@@ -103,7 +103,7 @@ namespace acs
 		{
 			return XCode::NetTimeout;
 		}
-		int code = result->GetCode();
+		int code = result->Code();
 		const std::string & body = result->GetBody();
 		if(code == XCode::Ok && !response->ParseFromString(body))
 		{
@@ -124,7 +124,7 @@ namespace acs
 		{
 			return XCode::NetTimeout;
 		}
-		return result->GetCode();
+		return result->Code();
 	}
 
 	int Actor::Call(const std::string& func, const pb::Message& request, pb::Message * response)
@@ -150,7 +150,7 @@ namespace acs
 				code = XCode::NetTimeout;
 				break;
 			}
-			code = result->GetCode();
+			code = result->Code();
 			const std::string & body = result->GetBody();
 			if (code == XCode::Ok && !response->ParsePartialFromString(body))
 			{
@@ -198,10 +198,10 @@ namespace acs
 			std::unique_ptr<rpc::Message> result = this->mRouter->Call(id, message);
 			if (result == nullptr)
 			{
-				code = XCode::NetTimeout;
+				code = XCode::CallTimeout;
 				break;
 			}
-			code = result->GetCode();
+			code = result->Code();
 			if(code == XCode::Ok && !response->Decode(result->GetBody()))
 			{
 				return XCode::ParseJsonFailure;
@@ -235,7 +235,7 @@ namespace acs
 				code = XCode::NetTimeout;
 				break;
 			}
-			code = result->GetCode();
+			code = result->Code();
 		}
 		while (false);
 		return code;
@@ -260,7 +260,7 @@ namespace acs
 				code = XCode::NetTimeout;
 				break;
 			}
-			code = result->GetCode();
+			code = result->Code();
 			if(code == XCode::Ok && !response->Decode(result->GetBody()))
 			{
 				return XCode::ParseJsonFailure;
@@ -294,7 +294,7 @@ namespace acs
 				code = XCode::NetTimeout;
 				break;
 			}
-			code = result->GetCode();
+			code = result->Code();
 			if(code == XCode::Ok && !response->Decode(result->GetBody()))
 			{
 				return XCode::ParseJsonFailure;
@@ -303,29 +303,6 @@ namespace acs
 		return code;
 	}
 
-	std::unique_ptr<rpc::Message> Actor::CallMethod(const std::string& func, const json::w::Document& request)
-	{
-		int code = XCode::Ok;
-		std::unique_ptr<rpc::Message> message = this->Make(func);
-		do
-		{
-			if (message == nullptr)
-			{
-				return nullptr;
-			}
-			if (!request.Serialize(message->Body()))
-			{
-				code = XCode::SerializationFailure;
-				break;
-			}
-			int id = message->SockId();
-			message->SetProto(rpc::proto::json);
-			return this->mRouter->Call(id, message);
-		}
-		while(false);
-		message->GetHead().Add(rpc::Header::code, code);
-		return message;
-	}
 
 	int Actor::MakeMessage(lua_State* lua, int idx,
 		const std::string& func, std::unique_ptr<rpc::Message> & message) const
@@ -341,12 +318,10 @@ namespace acs
 		{
 			return XCode::MakeTcpRequestFailure;
 		}
-		if(methodConfig->proto == rpc::proto::pb)
+		if(methodConfig->proto == rpc::proto::pb
+		    && !methodConfig->response.empty())
 		{
-			if (!methodConfig->response.empty())
-			{
-				message->TempHead().Add("res", methodConfig->response);
-			}
+			message->SetAttach(methodConfig->response);
 		}
 
 		switch (lua_type(lua, idx))
@@ -359,8 +334,7 @@ namespace acs
 				size_t count = 0;
 				const char* str = lua_tolstring(lua, idx, &count);
 				{
-					message->Body()->append(str, count);
-					message->SetProto(rpc::proto::string);
+					message->SetContent(str, count);
 				}
 				return XCode::Ok;
 			}
@@ -368,15 +342,14 @@ namespace acs
 			{
 				if(lua_isinteger(lua, idx))
 				{
-					long long number = luaL_checkinteger(lua, idx);
-					message->Body()->append(std::to_string(number));
+					long long number = lua_tointeger(lua, idx);
+					message->SetContent(number);
 				}
 				else
 				{
-					double number = luaL_checknumber(lua, idx);
-					message->Body()->append(std::to_string(number));
+					double number = lua_tonumber(lua, idx);
+					message->SetContent(number);
 				}
-				message->SetProto(rpc::proto::string);
 				break;
 			}
 			case LUA_TTABLE:
@@ -413,7 +386,7 @@ namespace acs
 				{
 					if(!lua::lbson::read(lua, idx, *message->Body()))
 					{
-						luaL_error(lua, "read bson fail");
+						LOG_ERROR("read bson fail");
 						return XCode::Failure;
 					}
 					message->SetProto(rpc::proto::bson);

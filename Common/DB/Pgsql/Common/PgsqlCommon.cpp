@@ -343,11 +343,10 @@ namespace pgsql
 					}
 				}
 			}
-			size_t count = 0;
-			std::unique_ptr<char> json;
-			if(document.Serialize(json, count))
+			wrap::string<true> json;
+			if(document.Serialize(json))
 			{
-				response.results.emplace_back(json.get(), count);
+				response.results.emplace_back(json.c_str(), json.size());
 			}
 		}
 	}

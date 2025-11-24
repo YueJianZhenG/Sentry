@@ -38,4 +38,15 @@ function DBHttpService:Mongo(request)
     return XCode.Ok, func(mongo, table.unpack(data.args))
 end
 
+function DBHttpService:Sqlite(request)
+    local message = request.data
+    local sqlite = require("SqliteComponent")
+    local func = sqlite[message.func]
+    if func == nil then
+        return XCode.Failure
+    end
+    print(message.args)
+    return XCode.Ok, func(sqlite, table.unpack(message.args))
+end
+
 return DBHttpService

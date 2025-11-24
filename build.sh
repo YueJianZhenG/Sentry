@@ -13,36 +13,36 @@ if [ ! -n "$1" ] ;then
   echo "*           release      build server type=release        *"
   echo "*           lib          build protobuf and lua           *"
   echo "*           all          build all cmake project          *"
-  echo "*           jemalloc     download jemalloc and build      *"
+  echo "*           asan         use asan check memory            *"
   echo "*           openssl      download openssl and build       *"
   echo "*                                                         *"
   echo "***********************************************************"
 else
-    cmake ./CMakeLists.txt
+    find ./ -name CMakeCache.txt -delete
     echo "start build server..."
 fi
 for arg in $cmd; do
-    if [[ $arg == "jemalloc" ]]; then
-        cd ./Libs/ || exit
-        if [ -d "./Libs/jemalloc" ]; then
-            echo "jemalloc already exists local"
-        else
-            git clone https://github.com/jemalloc/jemalloc.git
-        fi
-        cd ./jemalloc || exit
-        ./autogen.sh
-        ./configure
-        make
+
+     if [[ $arg == "asan" ]]; then
+        cd "$current_path" || exit
+        cmake -D__ENABLE_A_SCAN__=ON -DONLY_MAIN_THREAD=ON -DCMAKE_BUILD_TYPE=Debug ./CMakeLists.txt
+        make protoc -j$(nproc)
+        make libprotobuf -j$(nproc)
+        make lua-share -j$(nproc)
+        make lua-static -j$(nproc)
+        make mimalloc-static -j$(nproc)
+        make app -j$(nproc)
     fi
 
-    if [[ $arg == "all" ]]; then
-        cd "$current_path" || exit
-        make protoc
-        make libprotobuf
-        make lua-share
-        make lua-static
-        cmake -DCMAKE_BUILD_TYPE=Debug ./CMakeLists.txt
-        make app
+    if [[ $arg == "val" ]]; then
+          cd "$current_path" || exit
+          cmake -DENABLE_VALGRIND=ON -D__ENABLE_MI_MALLOC__=OFF -D__ENABLE_SHARE_STACK__=OFF -DBUILD_USE_CLANG=OFF -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-gdwarf-4" -DCMAKE_C_FLAGS="-gdwarf-4" ./CMakeLists.txt
+
+          make protoc -j$(nproc)
+          make libprotobuf -j$(nproc)
+          make lua-static -j$(nproc)
+          make mimalloc-static -j$(nproc)
+          make app -j$(nproc)
     fi
 
     if [[ $arg == "openssl" ]]; then
@@ -56,7 +56,7 @@ for arg in $cmd; do
             chmod -R 777 ./
             ./config
         make -j
-         if [ -d "../../openssl/lib" ]; then
+        if [ -d "../../openssl/lib" ]; then
             mkdir -p "../../openssl/lib"
         fi
         cp -r ./*.a ../../openssl/lib
@@ -68,8 +68,8 @@ for arg in $cmd; do
         cd "$current_path" || exit
         make protoc
         make libprotobuf
-        make lua-share
         make lua-static
+        make mimalloc-static
     fi
 
     if [[ $arg == "debug" ]]; then
@@ -81,7 +81,11 @@ for arg in $cmd; do
     if [[ $arg == "release" ]]; then
           cd "$current_path" || exit
           cmake -DCMAKE_BUILD_TYPE=Release ./CMakeLists.txt
-          make app
+          make protoc -j$(nproc)
+          make libprotobuf -j$(nproc)
+          make lua-static -j$(nproc)
+          make mimalloc-static -j$(nproc)
+          make app -j$(nproc)
     fi
 done
 

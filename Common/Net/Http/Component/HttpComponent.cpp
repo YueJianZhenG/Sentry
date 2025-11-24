@@ -20,12 +20,11 @@ namespace acs
 			: mSslContext(asio::ssl::context::sslv23)
 #endif
 	{
-		this->mNetComponent = nullptr;
+		this->mThread = nullptr;
 #ifdef __ENABLE_OPEN_SSL__
 		REGISTER_JSON_CLASS_FIELD(ssl::Config, pem);
 #endif
 	}
-
 
 	bool HttpComponent::Awake()
 	{
@@ -57,7 +56,7 @@ namespace acs
 
 	bool HttpComponent::LateAwake()
 	{
-		this->mNetComponent = this->GetComponent<ThreadComponent>();
+		this->mThread = this->GetComponent<ThreadComponent>();
 		return true;
 	}
 
@@ -89,14 +88,14 @@ namespace acs
 					this->mSslContexts.emplace(path, context);
 				}
 			}
-			socketProxy = this->mNetComponent->CreateSocket(*context);
+			socketProxy = this->mThread->CreateSocket(*context);
 		}
 		else
 		{
-			socketProxy = this->mNetComponent->CreateSocket();
+			socketProxy = this->mThread->CreateSocket();
 		}
 #else
-		socketProxy = this->mNetComponent->CreateSocket();
+		socketProxy = this->mThread->CreateSocket();
 #endif
 		Asio::Context & main = this->mApp->GetContext();
 		return std::make_shared<http::Client>(this, socketProxy, main);
@@ -148,6 +147,30 @@ namespace acs
 		return XCode::Ok;
 	}
 
+	int HttpComponent::Send(std::unique_ptr<http::Request>& request, int& rpcId)
+	{
+#ifndef __ENABLE_OPEN_SSL__
+		if(request->IsHttps())
+		{
+			const http::Url & url = request->GetUrl();
+			LOG_ERROR("[not ssl] => {}", url.ToStr());
+			return XCode::SendMessageFail;
+		}
+#endif
+		rpcId = this->BuildRpcId();
+		request->Header().Add(http::Header::Connection, http::Header::Close);
+		std::unique_ptr<http::Response> response = std::make_unique<http::Response>();
+		std::shared_ptr<http::Client> httpAsyncClient = this->CreateClient(request.get());
+		if (httpAsyncClient == nullptr)
+		{
+			return XCode::Failure;
+		}
+		this->mUseClients.emplace(rpcId, httpAsyncClient);
+		httpAsyncClient->Do(request, response, rpcId);
+		return XCode::Ok;
+	}
+
+
 	int HttpComponent::Send(std::unique_ptr<http::Request>& request, std::unique_ptr<http::Response>& response, int& rpcId)
 	{
 #ifndef __ENABLE_OPEN_SSL__
@@ -181,6 +204,26 @@ namespace acs
 			}
 			return this->BuildRpcTask<HttpRequestTask>(taskId)->Await();
 		}
+	}
+
+	std::unique_ptr<http::Content> HttpComponent::Run(std::unique_ptr<http::Request>& request)
+	{
+		std::unique_ptr<http::Response> response = this->Do(request);
+		if(response == nullptr || response->Code() != HttpStatus::OK)
+		{
+			return nullptr;
+		}
+		return response->MoveBody();
+	}
+
+	std::unique_ptr<http::Content> HttpComponent::Run(std::unique_ptr<http::Request>& request, std::unique_ptr<http::Content> content)
+	{
+		std::unique_ptr<http::Response> response = this->Do(request, std::move(content));
+		if(response == nullptr || response->Code() != HttpStatus::OK)
+		{
+			return nullptr;
+		}
+		return response->MoveBody();
 	}
 
 	std::unique_ptr<http::Response> HttpComponent::Do(std::unique_ptr<http::Request>& request, std::unique_ptr<http::Content> body)
@@ -240,12 +283,15 @@ namespace acs
 		{
 			this->mUseClients.erase(iter);
 		}
-//#ifdef __DEBUG__
-//		const std::string& error = response->GetError();
-//		const std::string& url = request->GetUrl().ToStr();
-//		const std::string& method = request->GetUrl().Method();
-//		LOG_DEBUG("[{}ms][HTTP:{}] ({}) => {}", request->GetCostTime(), method, url, error);
-//#endif
-		this->OnResponse(taskId, std::move(response));
+#ifdef __DEBUG__
+		//if (response->Code() != HttpStatus::OK)
+		{
+			const std::string& error = response->GetError();
+			const std::string& url = request->GetUrl().ToStr();
+			const std::string& method = request->GetUrl().Method();
+			LOG_BY_NAME("http", "[{}:{}ms] ({}) => {}", method, request->GetCostTime(), url, error);
+		}
+#endif
+		this->OnResponse(taskId, response);
 	}
 }

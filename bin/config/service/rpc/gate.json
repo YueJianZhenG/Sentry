@@ -6,7 +6,7 @@
     },
     "GateSystem.Login": {
         "async": true,
-        "Auth": false,
+        "auth": false,
         "client": true
     },
     "GateSystem.Logout": {
@@ -21,5 +21,11 @@
     "GateSystem.OnPlayerLogin": {
         "async": true,
         "client": false
+    },
+    "GateSystem.LoginAccount" : {
+        "auth" : false,
+        "async" : true,
+        "client" : true,
+        "opcode" : 20020
     }
 }

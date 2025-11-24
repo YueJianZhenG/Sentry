@@ -9,7 +9,7 @@
 #include"Entity/Component/Component.h"
 namespace acs
 {
-    class ConfigComponent final : public Component, public IRefresh
+	class ConfigComponent final : public Component, public IRefresh, public IDestroy
     {
     public:
         ConfigComponent() = default;
@@ -28,6 +28,7 @@ namespace acs
         bool LoadTextConfig(std::unique_ptr<ITextConfig> config, const std::string & path);
     private:
         bool Awake() final;
+		void OnDestroy() final;
 		bool LoadInterfaceConfig();
     private:
         std::unordered_map<size_t, std::string> mKeys;

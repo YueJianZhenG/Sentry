@@ -54,7 +54,7 @@ namespace Lua
 
 	std::unique_ptr<Table> Table::Create(lua_State* luaEnv, const std::string& name)
 	{
-		if(!help::fs::FileIsExist(name))
+		if(!help::fs::FileIsExist(name.c_str()))
 		{
 			lua_getglobal(luaEnv, name.c_str());
 		}

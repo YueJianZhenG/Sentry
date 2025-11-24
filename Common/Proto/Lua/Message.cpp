@@ -13,17 +13,19 @@ namespace lua
 {
 	int MessageEx::New(lua_State* lua)
 	{
-		const char* name = luaL_checkstring(lua, 1);
-		ProtoComponent* messageComponent = App::GetProto();
-		if (messageComponent == nullptr)
+		size_t count = 0;
+		const char * str1 = luaL_checklstring(lua, 1, &count);
+		static ProtoComponent* protoComponent = App::Get<ProtoComponent>();
+		if (protoComponent == nullptr)
 		{
 			luaL_error(lua, "ProtoComponent Is Null");
 			return 0;
 		}
 		if (lua_istable(lua, 2))
 		{
+			std::string name(str1, count);
 			std::unique_ptr<pb::Message> message;
-			pb::Message * data = messageComponent->Read(lua, name, 2);
+			pb::Message * data = protoComponent->Read(lua, name, 2);
 			if(data == nullptr)
 			{
 				return 0;
@@ -35,17 +37,22 @@ namespace lua
 		else if (lua_isstring(lua, 2))
 		{
 			size_t size = 0;
-			std::unique_ptr<pb::Message> message;
 			const char * json = luaL_checklstring(lua, 2, &size);
-			if(!messageComponent->New(name, json, size, message))
 			{
-				return 0;
+				std::string name(str1, count);
+				std::unique_ptr<pb::Message> message;
+				if(!protoComponent->New(name, json, size, message))
+				{
+					return 0;
+				}
+				Lua::UserDataParameter::Write(lua, message.release());
 			}
-			Lua::UserDataParameter::Write(lua, message.release());
+
 			return 1;
 		}
+		std::string name(str1, count);
 		std::unique_ptr<pb::Message> message;
-		if(!messageComponent->New(name, message))
+		if(!protoComponent->New(name, message))
 		{
 			return 0;
 		}
@@ -81,8 +88,11 @@ namespace lua
 		}
 		else if (lua_istable(lua, 2))
 		{
-			const char* name = luaL_checkstring(lua, 1);
-			message = App::GetProto()->Read(lua, name, 2);
+			if(lua_isstring(lua, 1))
+			{
+				const char* name = lua_tostring(lua, 1);
+				message = App::GetProto()->Read(lua, name, 2);
+			}
 		}
 		else if (lua_isstring(lua, 2))
 		{
@@ -91,14 +101,14 @@ namespace lua
 			message = App::GetProto()->Temp(name);
 			if (message == nullptr)
 			{
-				luaL_error(lua, "not find pb:%s", name);
+				LOG_ERROR("not find pb:{}", name);
 				return 0;
 			}
 			const char* json = luaL_checklstring(lua, 2, &size);
 			pb::StringPiece stringPiece(json, (int)size);
 			if (!pb_json::JsonStringToMessage(stringPiece, message).ok())
 			{
-				luaL_error(lua, "json to pb:%s", name);
+				LOG_ERROR("json to pb:{}", name);
 				return 0;
 			}
 		}
@@ -134,14 +144,14 @@ namespace lua
 	int MessageEx::Import(lua_State* lua)
 	{
 		const char* name = luaL_checkstring(lua, 1);
-		ProtoComponent* messageComponent = App::GetProto();
-		if (messageComponent == nullptr)
+		static ProtoComponent* protoComponent = App::Get<ProtoComponent>();
+		if (protoComponent == nullptr)
 		{
 			luaL_error(lua, "ProtoComponent Is Null");
 			return 0;
 		}
 		std::vector<std::string> types;
-		if(!messageComponent->Import(name, types))
+		if(!protoComponent->Import(name, types))
 		{
 			return 0;
 		}

@@ -55,7 +55,7 @@ function Admin:Login(request)
     local token = jwd.Create({
         t = 0,
         u = userInfo.use_id,
-        p = userInfo.permission
+        a = userInfo.permission
     })
     userInfo.login_time = os.time()
 

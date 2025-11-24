@@ -17,6 +17,7 @@ namespace lua
 		int timeout = 0;
 		bool async = true; //是不是异步模式
 		asio::streambuf mBuffer;
+		asio::streambuf mSendBuffer;
 		std::unique_ptr<Asio::Timer> mTimer;
 		std::unique_ptr<tcp::Socket> mSocket;
 	};

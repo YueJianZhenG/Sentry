@@ -4,7 +4,9 @@
 
 #include "Document.h"
 #include "Util/Tools/Math.h"
-
+#ifdef __ENABLE_MI_MALLOC__
+#include "mimalloc.h"
+#endif
 namespace json
 {
 	w::Value::Value()
@@ -149,6 +151,17 @@ namespace json
 
 namespace json
 {
+	bool w::Value::Add(const char* k, char v)
+	{
+		if (!this->IsObject())
+		{
+			return false;
+		}
+		yyjson_mut_val* val = yyjson_mut_int(this->mDoc, v);
+		yyjson_mut_val* key = yyjson_mut_strcpy(this->mDoc, k);
+		return yyjson_mut_obj_add(this->mValue, key, val);
+	}
+
 	bool w::Value::Add(const char* k, bool v)
 	{
 		if (!this->IsObject())
@@ -438,8 +451,6 @@ namespace json
 		bool Document::Serialize(std::string * json, bool pretty, yyjson_write_flag flag) const noexcept
 		{
 			size_t data_len;
-			bool result = true;
-			yyjson_write_err err;
 			flag |= YYJSON_WRITE_ALLOW_INVALID_UNICODE;
 			if (pretty)
 			{
@@ -451,27 +462,30 @@ namespace json
 				return false;
 			}
 			json->assign(str, data_len);
+#ifndef __ENABLE_MI_MALLOC__
 			free(str);
-			return result;
+#else
+			mi_free(str);
+#endif
+			return true;
 		}
 
-		bool Document::Serialize(std::unique_ptr<char>& json, size_t& size, bool pretty, yyjson_write_flag flag) const noexcept
+		bool Document::Serialize(wrap::string<true>& json, bool pretty, yyjson_write_flag flag) const noexcept
 		{
-			yyjson_write_err err;
 			flag |= YYJSON_WRITE_ALLOW_INVALID_UNICODE;
 			if (pretty)
 			{
 				flag = flag | YYJSON_WRITE_PRETTY;
 			}
+			size_t size = 0;
 			char* str = yyjson_mut_write(this->mDoc, flag, &size);
 			if (str == nullptr)
 			{
 				return false;
 			}
-			json.reset(str);
+			json.assign(str, size);
 			return true;
 		}
-
 	}
 }
 
@@ -795,12 +809,16 @@ namespace json
 			if (str != nullptr)
 			{
 				result.assign(str, size);
+#ifndef __ENABLE_MI_MALLOC__
 				free(str);
+#else
+				mi_free(str);
+#endif
 			}
 			return result;
 		}
 
-		bool Value::ToCString(std::unique_ptr<char> & json, size_t& size)
+		bool Value::ToCString(std::unique_ptr<char> & json, size_t& size) const
 		{
 			if(!yyjson_is_obj(this->mValue) && !yyjson_is_arr(this->mValue))
 			{
@@ -913,7 +931,11 @@ namespace json
 				if (json != nullptr && count > 0)
 				{
 					this->Decode(json, count);
+#ifndef __ENABLE_MI_MALLOC__
 					free(json);
+#else
+					mi_free(json);
+#endif
 				}
 			}
 		}

@@ -1,5 +1,8 @@
 if (MSVC)
     #add_compile_options(/EHs-) # 添加全局编译选项
+    add_compile_options(/wd4267)
+    add_compile_options(/wd4244)
+    add_compile_options(/wd4996)
     enable_language(C CXX ASM_MASM)
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MTd")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
@@ -42,8 +45,7 @@ if (WIN32 AND NOT MSVC)
     #set(protobuf_BUILD_SHARED_LIBS ON) #编译动态库
 endif ()
 
-option(__ENABLE_SPD_LOG__ "使用spdlog" OFF)
-
+option(__ENABLE_MI_MALLOC__ "使用mimalloc" OFF)
 option(ONLY_MAIN_THREAD "启用单线程模式" OFF)
 option(__NET_ERROR_LOG__ "打印网络层错误" ON)
 
@@ -57,45 +59,38 @@ option(__ENABLE_SHARE_STACK__ "协程使用共享栈" ON)
 option(__ENABLE_LEVEL_DB__ "使用leveldb数据库" OFF)
 option(__ENABLE_A_SCAN__ "使用AddressSanitizer检查内存问题" OFF)
 
-if (APPLE)
-    option(__ENABLE_DING_DING_PUSH "开启钉钉通知" OFF)
-elseif (UNIX)
-    option(__ENABLE_DING_DING_PUSH "开启钉钉通知" ON)
-else ()
-    option(__ENABLE_DING_DING_PUSH "开启钉钉通知" OFF)
+if (__ENABLE_A_SCAN__)
+    message("使用asan禁用mimalloc")
+    message("使用asan禁用协程共享栈")
+    set(__ENABLE_MI_MALLOC__ OFF CACHE BOOL "" FORCE)
+    set(__ENABLE_SHARE_STACK__ OFF CACHE BOOL "" FORCE)
 endif ()
-#add_definitions(-DOPENSSL)
 
-
+add_definitions(-DLOG_LEVEL_NONE=0) #none
 add_definitions(-DLOG_LEVEL_DEBUG=1) #debug
 add_definitions(-DLOG_LEVEL_INFO=2) #info
 add_definitions(-DLOG_LEVEL_WARN=3) #warn
 add_definitions(-DLOG_LEVEL_ERROR=4) #error
 add_definitions(-DLOG_LEVEL_FATAL=5) #fatal
-add_definitions(-DLOG_LEVEL_OFF=6) #关闭
 
+if (__ENABLE_MI_MALLOC__)
+    message("使用mimalloc")
+    add_definitions(-D __ENABLE_MI_MALLOC__)
+endif ()
 
 if (__ENABLE_SYSTEM_DEBUG)
     add_definitions(-D __ENABLE_SYSTEM_DEBUG)
 endif ()
 
 if(__ENABLE_SHARE_STACK__)
+    message("协程使用共享栈")
     add_definitions(-D __ENABLE_SHARE_STACK__)
+else ()
+    message("协程使用独立栈")
 endif ()
 
 if (__SHARE_PTR_COUNTER__)
     add_definitions(-D __SHARE_PTR_COUNTER__)
-endif ()
-
-if (__CONSOLE_LOG__)
-    add_definitions(-D __CONSOLE_LOG__)
-endif ()
-
-if (__ENABLE_DING_DING_PUSH)
-    message("开启钉钉通知")
-    add_definitions(-D __ENABLE_DING_DING_PUSH)
-else ()
-    message("关闭钉钉通知")
 endif ()
 
 if(__ENABLE_LEVEL_DB__)
@@ -117,19 +112,14 @@ message("================ [" ${CMAKE_BUILD_TYPE} "] ==============")
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-D __DEBUG__)
     add_definitions(-D __APP_HOTFIX__)
-    add_definitions(-DSET_LOG_LEVEL=1)
+    add_definitions(-DSET_LOG_LEVEL=1) #debug
 
     set(CMAKE_C_FLAGS_RELEASE "-O0 -g")
     set(CMAKE_CXX_FLAGS_RELEASE "-O0 -g")
 else ()
-    add_definitions(-DSET_LOG_LEVEL=2)
+    add_definitions(-DSET_LOG_LEVEL=2) #info
     set(CMAKE_C_FLAGS_RELEASE "-O2")
     set(CMAKE_CXX_FLAGS_RELEASE "-O2")
-endif ()
-
-if (__ENABLE_SPD_LOG__)
-    message("使用spdlog")
-    add_definitions(-D __ENABLE_SPD_LOG__)
 endif ()
 
 if (ONLY_MAIN_THREAD)
@@ -153,8 +143,9 @@ if (WIN32)
     add_definitions(-D ASIO_HAS_IOCP) #win上使用iocp
     add_definitions(-D WIN32_LEAN_AND_MEAN)
 elseif (APPLE)
-    message("当前为mac平台")
+    message("当前为mac平台强制禁用mimalloc")
     add_definitions(-D __OS_MAC__)
+    remove_definitions(__ENABLE_MI_MALLOC__)
 elseif (UNIX)
     message("当前为linux平台")
     add_definitions(-D __OS_LINUX__)

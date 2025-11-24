@@ -32,7 +32,7 @@ namespace acs
 		return true;
 	}
 
-	int HttpService::Invoke(const HttpMethodConfig * config, const http::Request& request, http::Response& response) noexcept
+	int HttpService::Invoke(const HttpMethodConfig * config, const http::Request& request, http::Response& response)
 	{
 		const std::string & method = config->method;
 		if(this->mLuaModule != nullptr && this->mLuaModule->HasFunction(method))
@@ -47,12 +47,12 @@ namespace acs
 		return target == nullptr ? XCode::CallFunctionNotExist : target->Invoke(request, response);
 	}
 
-	int HttpService::CallLua(const std::string & method, const http::Request& request, http::Response& response) noexcept
+	int HttpService::CallLua(const std::string & method, const http::Request& request, http::Response& response)
 	{
 		this->mLuaModule->GetMetaFunction("__Invoke");
 		lua_State * lua = this->mLuaModule->GetLuaEnv();
+		lua_pushlstring(lua, method.c_str(), method.size());
 		{
-			lua_pushstring(lua, method.c_str());
 			if(request.WriteToLua(lua) == -1)
 			{
 				return XCode::CallArgsError;
@@ -80,23 +80,22 @@ namespace acs
 					document.Add("code", code);
 					document.Add("data", jsonValue.val);
 				}
-				response.Json(document);
+				response.SetContent(document);
 				return XCode::Ok;
 			}
 			return XCode::Failure;
 		}
 	}
 
-	int HttpService::AwaitCallLua(const std::string & method, const http::Request& request, http::Response& response) noexcept
+	int HttpService::AwaitCallLua(const std::string & method, const http::Request& request, http::Response& response)
 	{
 		if(!this->mLuaModule->GetMetaFunction("__Call"))
 		{
 			return XCode::CallServiceNotFound;
 		}
 		lua_State * lua = this->mLuaModule->GetLuaEnv();
+		lua_pushlstring(lua, method.c_str(), method.size());
 		{
-			lua_pushstring(lua, method.c_str());
-
 			request.WriteToLua(lua);
 			std::unique_ptr<LuaServiceTaskSource> luaTaskSource =
 					std::make_unique<LuaServiceTaskSource>(&response);

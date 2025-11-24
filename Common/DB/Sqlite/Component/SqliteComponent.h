@@ -1,5 +1,6 @@
 #pragma once
 #include "Sqlite/sqlite3.h"
+#include "Core/Wrap/Wrap.h"
 #include "DB/Common/TableInfo.h"
 #include "DB/Common/SqlFactory.h"
 #include "Proto/Include/Message.h"
@@ -41,13 +42,17 @@ namespace sqlite
 			sqlite3_bind_text(this->stmt, index++, str, size, SQLITE_TRANSIENT);
 		}
 
+		inline void Bind(const wrap::string<> & str)
+		{
+			sqlite3_bind_text(this->stmt, index++, str.c_str(), str.size(), SQLITE_TRANSIENT);
+		}
+
 		inline void Bind(const json::w::Document & jsonValue)
 		{
-			size_t count = 0;
-			std::unique_ptr<char> json;
-			if(jsonValue.Serialize(json, count))
+			wrap::string<true> json;
+			if(jsonValue.Serialize(json))
 			{
-				this->Bind(json.get(), count);
+				this->Bind(json.c_str(), json.size());
 			}
 		}
 
@@ -88,7 +93,7 @@ namespace sqlite
 
 namespace acs
 {
-	class SqliteComponent final : public Component, public IDestroy, public IRefresh
+	class SqliteComponent final : public Component, public IDestroy, public IRefresh, public IServerRecord
 	{
 	public:
 		SqliteComponent();
@@ -107,6 +112,7 @@ namespace acs
 		std::unique_ptr<sqlite::Response> Invoke(const std::string & name, lua_State * L);
 	public:
 		bool Build(const std::string & name, const std::string & sql);
+		bool Build(const std::string & name, const char* sql, size_t size);
 		template<typename ... Args>
 		inline std::unique_ptr<sqlite::Response> Invoke(const std::string & name, Args&& ...args)
 		{
@@ -137,11 +143,13 @@ namespace acs
 		bool InitTable(const std::string & name, const sql::Table & tableInfo);
 		bool CreateTable(const std::string & name, const sql::Table & tableInfo);
 	private:
+		bool Init();
 		bool Awake() final;
 		bool OnRefresh() final;
-		bool LateAwake() final;
 		void OnDestroy() final;
+		void OnRecord(json::w::Document &document) final;
 	private:
+		unsigned int mSum;
 		std::string mName;
 		sqlite3 * mDatabase;
 		sqlite::Config mConfig;

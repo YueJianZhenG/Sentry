@@ -26,6 +26,7 @@ namespace acs
 	{
 		this->mConsole = 0;
 		this->mThread = nullptr;
+		this->mAllLog = nullptr;
 		custom::LogConfig::RegisterField("wx", &custom::LogConfig::wx);
 		custom::LogConfig::RegisterField("open", &custom::LogConfig::open);
 		custom::LogConfig::RegisterField("ding", &custom::LogConfig::ding);
@@ -39,7 +40,8 @@ namespace acs
 
 	LoggerComponent::~LoggerComponent()
 	{
-		this->mLoggers.clear();
+		this->mNameLoggers.clear();
+		this->mLevelLoggers.clear();
 	}
 
 	bool LoggerComponent::Awake()
@@ -53,6 +55,7 @@ namespace acs
 		});
 		os::System::GetAppEnv("console", this->mConsole);
 		this->mThread = this->GetComponent<ThreadComponent>();
+		this->mLevelLoggers.resize((size_t)custom::LogLevel::All);
 		std::unordered_map<std::string, custom::LogLevel> logLevelMap = {
 				{"all", custom::LogLevel::All, },
 				{"none", custom::LogLevel::None, },
@@ -76,95 +79,135 @@ namespace acs
 				return false;
 			}
 		}
+		help::OnNewDayEvent::Add(this, &LoggerComponent::OnNewDay);
 		return true;
 	}
+
+	void LoggerComponent::OnNewDay(int days, int week)
+	{
+		std::lock_guard<std::mutex> lock(this->mMutex);
+		for(std::unique_ptr<custom::Logger> & logger : this->mNameLoggers)
+		{
+			logger->OnNewDay();
+		}
+		for(std::unique_ptr<custom::Logger> & logger : this->mLevelLoggers)
+		{
+			if(logger != nullptr)
+			{
+				logger->OnNewDay();
+			}
+		}
+	}
+
 
 	void LoggerComponent::OnDestroy()
 	{
 		this->DropAllLog();
 		std::this_thread::sleep_for(std::chrono::seconds(1)); //等待日志保存
+		{
+			this->mNameLoggers.clear();
+			this->mLevelLoggers.clear();
+		}
 	}
 
 	void LoggerComponent::Flush()
 	{
 		std::lock_guard<std::mutex> lock(this->mMutex);
-		auto iter1 = this->mLoggers.begin();
-		for (; iter1 != this->mLoggers.end(); iter1++)
+		for(std::unique_ptr<custom::Logger> & logger : this->mNameLoggers)
 		{
-			iter1->second->Flush();
+			logger->Flush();
 		}
-		auto iter = this->mLevelLoggers.begin();
-		for (; iter != this->mLevelLoggers.end(); iter++)
+
+		for(std::unique_ptr<custom::Logger> & logger : this->mLevelLoggers)
 		{
-			iter->second->Flush();
+			if(logger)
+			{
+				logger->Flush();
+			}
 		}
 	}
 
 	void LoggerComponent::DropAllLog()
 	{
-		auto iter = this->mLoggers.begin();
-		for (; iter != this->mLoggers.end(); iter++)
+		std::lock_guard<std::mutex> lock(this->mMutex);
+
+		for(std::unique_ptr<custom::Logger> & logger : this->mNameLoggers)
 		{
-			iter->second->Close();
+			logger->Close();
 		}
-		auto iter1 = this->mLevelLoggers.begin();
-		for (; iter1 != this->mLevelLoggers.end(); iter1++)
+
+		for(std::unique_ptr<custom::Logger> & logger : this->mLevelLoggers)
 		{
-			iter1->second->Close();
+			if(logger)
+			{
+				logger->Close();
+			}
 		}
 	}
 
 	void LoggerComponent::Flush(const std::string& name)
 	{
 		std::lock_guard<std::mutex> lock(this->mMutex);
-		auto iter = this->mLoggers.find(name);
-		if (iter != this->mLoggers.end())
+		custom::Logger * logger = this->GetLogger(name);
+		if(logger != nullptr)
 		{
-			iter->second->Flush();
+			logger->Flush();
 		}
+
 	}
 
-	void LoggerComponent::PushLog(std::unique_ptr<custom::LogInfo> log)
+	void LoggerComponent::PushLog(std::unique_ptr<custom::LogInfo>& log)
 	{
 		if(this->mConsole == 1)
 		{
 			Debug::Console(*log);
 		}
 		custom::Logger* logger = this->GetLogger(log->Level);
-		if(logger == nullptr)
-		{
-			logger = this->GetLogger(custom::LogLevel::All);
-		}
 		if (logger != nullptr)
 		{
-			logger->Push(std::move(log));
+			logger->Push(log);
 		}
 	}
 
-	void LoggerComponent::PushLog(const std::string &name, std::unique_ptr<custom::LogInfo> logInfo)
+	void LoggerComponent::PushLog(const std::string &name, std::unique_ptr<custom::LogInfo>& logInfo)
 	{
-		std::lock_guard<std::mutex> lock(this->mMutex);
-		auto iter = this->mLoggers.find(name);
-		if(iter == this->mLoggers.end())
+		if(this->mConsole == 1)
 		{
-			LOG_ERROR("not open log:{}", name)
-			return;
+			Debug::Console(name, *logInfo);
 		}
-		iter->second->Push(std::move(logInfo));
+		custom::Logger * logger = this->GetLogger(name);
+		if(logger != nullptr)
+		{
+			logger->Push(name, logInfo);
+		}
 	}
 
 	custom::Logger *LoggerComponent::GetLogger(const std::string &name)
 	{
 		std::lock_guard<std::mutex> lock(this->mMutex);
-		auto iter = this->mLoggers.find(name);
-		return iter != this->mLoggers.end() ? iter->second : nullptr;
+		auto iter = std::find_if(this->mNameLoggers.begin(), this->mNameLoggers.end(),
+			[&name](std::unique_ptr<custom::Logger> & log1) {
+			return log1->GetName() == name;
+		});
+		if(iter != this->mNameLoggers.end())
+		{
+			return (*iter).get();
+		}
+		return this->mAllLog.get();
 	}
 
 	custom::Logger* LoggerComponent::GetLogger(custom::LogLevel logLevel)
 	{
 		std::lock_guard<std::mutex> lock(this->mMutex);
-		auto iter = this->mLevelLoggers.find(logLevel);
-		return iter != this->mLevelLoggers.end() ? iter->second : nullptr;
+		if(logLevel > custom::LogLevel::None && logLevel < custom::LogLevel::All)
+		{
+			std::unique_ptr<custom::Logger> & levelLog = this->mLevelLoggers[(size_t)logLevel];
+			if(levelLog != nullptr)
+			{
+				return levelLog.get();
+			}
+		}
+		return this->mAllLog.get();
 	}
 
 	bool LoggerComponent::Create(const custom::LogConfig & config)
@@ -207,7 +250,7 @@ namespace acs
 				assert(mongoConfig.mechanism == mongo::auth::SCRAM_SHA1
 					   || mongoConfig.mechanism == mongo::auth::SCRAM_SHA256);
 #else
-				assert(config.mechanism == mongo::auth::SCRAM_SHA1);
+				assert(mongoConfig.mechanism == mongo::auth::SCRAM_SHA1);
 #endif
 				logger->AddOutput<custom::MongoOutput>(mongoConfig);
 			}
@@ -216,12 +259,18 @@ namespace acs
 		{
 			return false;
 		}
-		custom::Logger * newLogger = logger.release();
-		if(config.level > custom::LogLevel::None)
+		switch(config.level)
 		{
-			this->mLevelLoggers.emplace(config.level, newLogger);
+		case custom::LogLevel::All:
+			this->mAllLog = std::move(logger);
+			break;
+		case custom::LogLevel::None:
+			this->mNameLoggers.emplace_back(std::move(logger));
+			break;
+		default:
+			this->mLevelLoggers[(size_t)config.level] = std::move(logger);
+			break;
 		}
-		this->mLoggers.emplace(config.name, newLogger);
 		return true;
 	}
 }

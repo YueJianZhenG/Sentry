@@ -30,17 +30,15 @@ namespace acs
 	protected:
 		bool LateAwake() final;
 		virtual bool OnInit() = 0;
-		HttpServiceRegister & GetRegister() { return this->mServiceRegister;}
 	public:
-		Lua::LuaModule * GetLuaModule() { return this->mLuaModule; }
-		int Invoke(const HttpMethodConfig * config, const http::Request &, http::Response &) noexcept;
+		int Invoke(const HttpMethodConfig * config, const http::Request &, http::Response &);
 	private:
-		int CallLua(const std::string & method, const http::Request & request, http::Response & response) noexcept;
-		int AwaitCallLua(const std::string & method, const http::Request & request, http::Response & response) noexcept;
-	private:
+		int CallLua(const std::string & method, const http::Request & request, http::Response & response);
+		int AwaitCallLua(const std::string & method, const http::Request & request, http::Response & response);
+	protected:
 		Lua::LuaModule * mLuaModule;
 		HttpServiceRegister mServiceRegister;
 	};
 }
-#define BIND_COMMON_HTTP_METHOD(func) this->GetRegister().Bind(GET_FUNC_NAME(#func), &func)
+#define BIND_COMMON_HTTP_METHOD(func) this->mServiceRegister.Bind(GET_FUNC_NAME(#func), &func)
 #endif //APP_HTTPSERVICE_H

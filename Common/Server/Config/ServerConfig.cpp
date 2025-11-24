@@ -55,6 +55,7 @@ namespace acs
 		if(jsonDocument.Serialize(&json, true) && this->Decode(json))
 		{
 			//printf("%s\n", json.c_str());
+			help::fs::WriterFile("./gen.json", json);
 			return this->OnLoadJson();
 		}
 		return false;
@@ -75,7 +76,7 @@ namespace acs
 		std::string secret;
 		if(jsonObject.Get("secret", secret))
 		{
-			if(help::fs::FileIsExist(secret))
+			if(help::fs::FileIsExist(secret.c_str()))
 			{
 				help::fs::ReadTxtFile(secret, this->mSecret);
 			}

@@ -1,6 +1,7 @@
 #pragma once
 
-#include"LuaInclude.h"
+#include "LuaInclude.h"
+#include "ClassNameProxy.h"
 
 namespace Lua
 {
@@ -35,9 +36,10 @@ namespace Lua
 
 			static void Write(lua_State* lua, T& data)
 			{
-				size_t size = sizeof(PtrProxy<T>);
+				size_t size = sizeof(Lua::PtrProxy<T>);
 				new(lua_newuserdata(lua, size))PtrProxy<T>(&data);
-				lua_getglobal(lua, ClassNameProxy::GetLuaClassName<T>());
+				const std::string & name = lua::ClassFactory<T>::name;
+				lua_getglobal(lua, name.c_str());
 				if (lua_istable(lua, -1))
 				{
 					lua_setmetatable(lua, -2);
@@ -64,10 +66,10 @@ namespace Lua
 				}
 				size_t size = sizeof(PtrProxy<T>);
 				new(lua_newuserdata(lua, size))PtrProxy<T>(data);
-				const char* typeName = ClassNameProxy::GetLuaClassName<T>();
-				if (typeName != nullptr)
+				const std::string & typeName = lua::ClassFactory<T>::name;
+				if (!typeName.empty())
 				{
-					lua_getglobal(lua, typeName);
+					lua_getglobal(lua, typeName.c_str());
 					if (lua_istable(lua, -1))
 					{
 						lua_setmetatable(lua, -2);
@@ -84,10 +86,10 @@ namespace Lua
 				}
 				size_t size = sizeof(PtrProxy<T>);
 				new(lua_newuserdata(lua, size))PtrProxy<T>(data, true);
-				const char* typeName = ClassNameProxy::GetLuaClassName<T>();
-				if (typeName != nullptr)
+				const std::string & typeName = lua::ClassFactory<T>::name;
+				if (!typeName.empty())
 				{
-					lua_getglobal(lua, typeName);
+					lua_getglobal(lua, typeName.c_str());
 					if (lua_istable(lua, -1))
 					{
 						lua_setmetatable(lua, -2);
@@ -110,10 +112,10 @@ namespace Lua
 			{
 				size_t size = sizeof(SharedPtrProxy<T>);
 				new(lua_newuserdata(lua, size))SharedPtrProxy<T>(data);
-				const char* typeName = ClassNameProxy::GetLuaClassName<T>();
-				if (typeName != nullptr)
+				const std::string & typeName = lua::ClassFactory<T>::name;
+				if (!typeName.empty())
 				{
-					lua_getglobal(lua, typeName);
+					lua_getglobal(lua, typeName.c_str());
 					if (lua_istable(lua, -1))
 					{
 						lua_setmetatable(lua, -2);

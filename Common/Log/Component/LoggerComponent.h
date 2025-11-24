@@ -21,8 +21,8 @@ namespace acs
 		void Flush();
 		void DropAllLog();
 		void Flush(const std::string & name);
-		void PushLog(std::unique_ptr<custom::LogInfo> logInfo);
-		void PushLog(const std::string & name, std::unique_ptr<custom::LogInfo> logInfo);
+		void PushLog(std::unique_ptr<custom::LogInfo>& logInfo);
+		void PushLog(const std::string & name, std::unique_ptr<custom::LogInfo>& logInfo);
 	private:
 		bool Create(const custom::LogConfig & config);
 		custom::Logger * GetLogger(const std::string& name);
@@ -30,13 +30,15 @@ namespace acs
 	private:
 		bool Awake() final;
 		void OnDestroy() final;
+		void OnNewDay(int days, int week);
 	private:
 		int mConsole;
 		std::mutex mMutex;
 		class ThreadComponent * mThread;
 		std::vector<custom::LogConfig> mConfig;
-		std::unordered_map<std::string, custom::Logger *> mLoggers;
-		std::unordered_map<custom::LogLevel, custom::Logger *> mLevelLoggers;
+		std::unique_ptr<custom::Logger> mAllLog;
+		std::vector<std::unique_ptr<custom::Logger>> mNameLoggers;
+		std::vector<std::unique_ptr<custom::Logger>> mLevelLoggers;
 	};
 }
 

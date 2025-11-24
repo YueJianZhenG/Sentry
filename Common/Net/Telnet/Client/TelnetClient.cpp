@@ -71,6 +71,7 @@ namespace telnet
 	void Client::OnReceiveLine(std::istream& readStream, size_t size)
 	{
 		std::unique_ptr<telnet::Request> request = std::make_unique<telnet::Request>();
+		std::unique_ptr<telnet::Response> response = std::make_unique<telnet::Response>();
 		{
 			request->OnRecvMessage(readStream, size);
 			if(request->GetCmd().empty())
@@ -78,12 +79,8 @@ namespace telnet
 				this->ReadLine();
 				return;
 			}
-			std::shared_ptr<tcp::Client> self = this->shared_from_this();
-			asio::post(this->mMain, [self, this, req = request.release()]
-			{
-				int id = this->mSocketId;
-				this->mComponent->OnMessage(id, req, nullptr);
-			});
+			this->mComponent->OnMessage(request.get(), response.get());
+			this->Send(std::move(response));
 		}
 	}
 }

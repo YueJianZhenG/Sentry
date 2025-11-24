@@ -1,5 +1,6 @@
 ﻿#include"App.h"
 #include "XCode/XCode.h"
+#include "Util/Core/Com.h"
 #ifndef __OS_WIN__
 #include<csignal>
 #endif
@@ -8,7 +9,6 @@
 #include "Core/System/System.h"
 #include "Server/Config/ServerConfig.h"
 #include "Timer/Timer/ElapsedTimer.h"
-#include "Util/File/DirectoryHelper.h"
 #include "Proto/Component/ProtoComponent.h"
 #include "Server/Component/ThreadComponent.h"
 #include "Cluster/Component/LaunchComponent.h"
@@ -16,10 +16,10 @@
 #include "Timer/Component/TimerComponent.h"
 #include "Cluster/Config/ClusterConfig.h"
 #include "Config/Base/LangConfig.h"
-
+#include "Event/Base/IEvent.h"
+#include "Event/Component/EventProxyComponent.h"
 #ifdef __ENABLE_OPEN_SSL__
 
-#include "Auth/Aes/Aes.h"
 #include "Auth/Jwt/Jwt.h"
 
 #else
@@ -33,7 +33,35 @@
 #include "Http/Component/NotifyComponent.h"
 #endif
 
-//#include "vld.h"
+#ifdef __ENABLE_MI_MALLOC__
+#include "mimalloc.h"
+
+inline void* ssl_malloc(size_t size, const char* file, int line) {
+	return mi_malloc(size);
+}
+inline void* ssl_realloc(void* ptr, size_t size, const char* file, int line) {
+	return mi_realloc(ptr, size);
+}
+inline void ssl_free(void* ptr, const char* file, int line) {
+	mi_free(ptr);
+}
+
+#endif
+
+#ifdef __OS_WIN__
+	inline bool HandlerRoutine(DWORD dwCtrlType)
+	{
+		switch (dwCtrlType)
+		{
+			case CTRL_C_EVENT:
+			case CTRL_CLOSE_EVENT:
+			case CTRL_SHUTDOWN_EVENT:
+				acs::App::Inst()->Stop();
+				return true;
+		}
+		return false;
+	}
+#endif
 
 namespace acs
 {
@@ -41,8 +69,8 @@ namespace acs
 			Node(id, name), mSignal(mContext),
 			mContext(1), mStartTime(help::Time::NowMil())
 	{
-		this->mLogicFps = 0;
-		this->mTickCount = 0;
+		this->mFps = 0;
+		this->mDeltaTime = 0;
 		this->mGuidIndex = 0;
 		this->mEventCount = 0;
 		this->mLastGuidTime = 0;
@@ -56,13 +84,16 @@ namespace acs
 #endif
 
 #ifdef __OS_WIN__
-		//Debug::Init();
+		Debug::Init();
 #endif
 #ifdef __ENABLE_OPEN_SSL__
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 		OpenSSL_add_all_algorithms();
 		ERR_load_crypto_strings();
 #else
+#ifdef __ENABLE_MI_MALLOC__
+		CRYPTO_set_mem_functions(ssl_malloc, ssl_realloc, ssl_free);
+#endif
 		OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, nullptr);
 #endif
 #endif
@@ -75,26 +106,27 @@ namespace acs
 	bool App::LoadComponent()
 	{
 		std::string path, cluster;
-		if (!this->mConfig.GetPath("node", path)) //加载集群配置
+		if (this->mConfig.GetPath("node", path)) //加载集群配置
 		{
-			return false;
+			LOG_DEBUG("node path = {}", path);
+			TextConfig* config = new ClusterConfig();
+			if (!config->LoadConfig(path))
+			{
+				return false;
+			}
 		}
-		TextConfig* config = new ClusterConfig();
-		if (!config->LoadConfig(path))
-		{
-			return false;
-		}
+
 
 		this->AddComponent<ThreadComponent>();
 		this->AddComponent<LoggerComponent>();
 		LOG_CHECK_RET_FALSE(this->AddComponent<TimerComponent>());
 		LOG_CHECK_RET_FALSE(this->AddComponent<LaunchComponent>());
 		LOG_CHECK_RET_FALSE(this->AddComponent<CoroutineComponent>());
+		LOG_CHECK_RET_FALSE(this->AddComponent<EventProxyComponent>());
 
 		this->mActor = this->GetComponent<NodeComponent>();
 		this->mProto = this->GetComponent<ProtoComponent>();
 		this->mCoroutine = this->GetComponent<CoroutineComponent>();
-
 		LOG_CHECK_RET_FALSE(this->InitComponent());
 #ifndef __OS_WIN__
 		this->mSignal.add(SIGINT);
@@ -103,7 +135,10 @@ namespace acs
 		{
 			this->mCoroutine->Start(&App::Stop, this);
 		});
+#else
+		SetConsoleCtrlHandler((PHANDLER_ROUTINE)HandlerRoutine, true);
 #endif
+		jwt::secret = this->mConfig.GetSecretKey();
 		this->mCoroutine->Start(&App::StartAllComponent, this);
 		if (this->mActor == nullptr)
 		{
@@ -160,16 +195,16 @@ namespace acs
 				return false;
 			}
 #ifdef __DEBUG__
-			//LOG_DEBUG("[{}ms] [{}.LateAwake] ok", timer.GetMs(), component->GetName());
+			//LOG_INFO("[{}ms] [{}.LateAwake] ok", timer.GetMs(), component->GetName());
 #endif
 		}
 		return true;
 	}
 
-	int App::Run() noexcept
+	int App::Run()
 	{
 		std::string path;
-		srand(help::HighTime::NowMil());
+		srand(help::Time::NowMil());
 		if(!os::System::GetAppEnv("CONFIG", path))
 		{
 			return XCode::ConfigError;
@@ -183,9 +218,6 @@ namespace acs
 			return XCode::Failure;
 		}
 
-		long long logicStartTime = 0;
-		long long logicSecondTime = help::HighTime::NowMil();
-		long long logicLastUpdateTime = help::HighTime::NowMil();
 
 		std::vector<IFrameUpdate*> frameUpdateComponents;
 		std::vector<ISystemUpdate*> systemUpdateComponents;
@@ -200,82 +232,87 @@ namespace acs
 		int fps = 15;
 		Asio::Code code;
 		int eventCount = 100;
-		long long logicRunCount = 0;
 		json::r::Value jsonObject;
 		if (this->mConfig.Get("core", jsonObject))
 		{
 			jsonObject.Get("fps", fps);
 			jsonObject.Get("event", eventCount);
 		}
+		int tickCount = 0;
+		int frameCount = 0;
+		long long secondTotalTime = 0;
 		std::chrono::milliseconds sleepTime(1);
-		long long logicUpdateInterval = 1000 / fps;
+		long long nowFrameTime = help::Time::NowMil();
+		long long lastFrameTime = help::Time::NowMil();
 		auto work = asio::make_work_guard(this->mContext);
-
+		const long long CONST_UPDATE_INTERVAL = 1000 / fps;
+		long long nextFrameTime = help::Time::NowMil() + CONST_UPDATE_INTERVAL;
 		while (!this->mContext.stopped())
 		{
 			int count = 0;
-			logicRunCount++;
-			while(this->mContext.poll_one(code) > 0 && count <= eventCount)
+			while (this->mContext.poll_one(code) > 0 && count <= eventCount)
 			{
-				count++;
+				++count;
 				this->mEventCount++;
 			}
+			nowFrameTime = help::Time::NowMil();
+			help::Time::NowTimeMS = nowFrameTime;
 			for (ISystemUpdate* component: systemUpdateComponents)
 			{
-				component->OnSystemUpdate();
+				component->OnSystemUpdate(nowFrameTime);
 			}
-			if (this->mStatus >= ServerStatus::Start && this->mStatus < ServerStatus::Closing)
-			{
-				logicStartTime = help::HighTime::NowMil();
-				if (logicStartTime - logicLastUpdateTime >= logicUpdateInterval)
-				{
-					for (IFrameUpdate* component: frameUpdateComponents)
-					{
-						component->OnFrameUpdate(logicStartTime);
-					}
-					long long nowTime = help::HighTime::NowMil();
-					logicUpdateInterval = (1000 / fps) - (nowTime - logicStartTime);
 
-					if (logicStartTime - logicSecondTime >= 1000)
-					{
+			if (this->mStatus >= ServerStatus::Ready && this->mStatus
+			        < ServerStatus::Closing && nowFrameTime >= nextFrameTime)
+			{
+				nextFrameTime = nowFrameTime + CONST_UPDATE_INTERVAL;
+				this->mDeltaTime = (int)(nowFrameTime - lastFrameTime);
+				for (IFrameUpdate* component: frameUpdateComponents)
+				{
+					component->OnFrameUpdate(this->mDeltaTime);
+				}
+				++frameCount;
+				secondTotalTime += this->mDeltaTime;
+				if (secondTotalTime >= 1000)
+				{
+					++tickCount;
+					this->mFps = (float)frameCount * 1000.0f / (float)secondTotalTime;
 #ifdef __OS_WIN__
-						os::SystemInfo systemInfo;
-						constexpr double MB = 1024 * 1024.0f;
-						os::System::GetSystemInfo(systemInfo);
-						double mb = systemInfo.use_memory / MB;
-						SetConsoleTitle(fmt::format("[{:.2f}%] {:.3f}MB", systemInfo.cpu * 100, mb).c_str());
+					os::SystemInfo systemInfo;
+					os::System::GetSystemInfo(systemInfo);
+					SetConsoleTitle(fmt::format("fps:{:.2f} [{:.2f}%] {}/{}",
+							this->mFps, systemInfo.cpu * 100, help::com::BytesToString(systemInfo.use_memory),
+							help::com::BytesToString(systemInfo.max_memory)).c_str());
 #endif
 #if defined(__OS_WIN__) || defined(__OS_MAC__)
-						this->Refresh();
+					this->Refresh();
 #endif
-						this->mTickCount++;
-						long long costTime = nowTime - logicSecondTime;
-						float seconds = (float)costTime / 1000.0f;
-						this->mLogicFps = (float)logicRunCount / seconds;
-						for (ISecondUpdate* component: secondUpdateComponents)
-						{
-							component->OnSecondUpdate(this->mTickCount);
-						}
-						logicRunCount = 0;
-						logicSecondTime = help::HighTime::NowMil();
-					}
-
-					for (ILastFrameUpdate* component: lastFrameUpdateComponents)
+					help::OnOneSecondEvent::Trigger(tickCount);
+					for (ISecondUpdate* component: secondUpdateComponents)
 					{
-						component->OnLastFrameUpdate(logicStartTime);
+						component->OnSecondUpdate(tickCount);
 					}
-					logicLastUpdateTime = help::HighTime::NowMil();
+					frameCount = 0;
+					secondTotalTime = 0;
 				}
+				for (ILastFrameUpdate* component: lastFrameUpdateComponents)
+				{
+					component->OnLastFrameUpdate();
+				}
+				lastFrameTime = nowFrameTime;
 			}
 			std::this_thread::sleep_for(sleepTime);
 		}
+#ifdef __OS_WIN__
+		Debug::Clear();
+#endif
 		printf("========== close server ==========\n");
 		return XCode::Ok;
 	}
 
 	long long App::MakeGuid()
 	{
-		long long nowTime = help::HighTime::NowSec();
+		long long nowTime = help::Time::NowSec();
 		if (nowTime != this->mLastGuidTime)
 		{
 			this->mGuidIndex = 0;
@@ -295,41 +332,8 @@ namespace acs
 
 	std::string App::NewUuid()
 	{
-		long long guid = this->MakeGuid();
-		return std::to_string(guid);
+		return std::to_string(this->MakeGuid());
 	}
-
-
-	std::string App::Sign(json::w::Document& document)
-	{
-		std::string data;
-		document.Serialize(&data);
-		const std::string& key = this->mConfig.GetSecretKey();
-#ifdef __ENABLE_OPEN_SSL__
-		return jwt::Create(data, key);
-#else
-		help::Mask::Encode(data, key);
-		return _bson::base64::encode(data);
-#endif
-	}
-
-	bool App::DecodeSign(const std::string& sign, json::r::Document& document)
-	{
-		const std::string& key = this->mConfig.GetSecretKey();
-#ifdef __ENABLE_OPEN_SSL__
-		std::string data;
-		if (!jwt::Verify(sign, key, data))
-		{
-			return false;
-		}
-		return document.Decode(data);
-#else
-		std::string output = _bson::base64::decode(sign);
-		help::Mask::Decode(output, key);
-		return document.Decode(output);
-#endif
-	}
-
 
 	void App::Stop()
 	{
@@ -341,7 +345,7 @@ namespace acs
 #ifdef __DEBUG__
 		CONSOLE_LOG_ERROR("start close {}", this->Name());
 #else
-		long long t1 = help::HighTime::NowMil();
+		long long t1 = help::Time::NowMil();
 #endif
 		std::vector<IAppStop*> stopComponent;
 		this->GetComponents<IAppStop>(stopComponent);
@@ -369,7 +373,6 @@ namespace acs
 			{
 				name2 = dynamic_cast<Component*>(nextComponent)->GetName();
 			}
-			CONSOLE_LOG_INFO("[{:.2f}%] close {} => {}", process * 100, name1, name2);
 			component->OnDestroy();
 		}
 		this->mContext.stop();
@@ -415,14 +418,15 @@ namespace acs
 			}
 			timerComponent->CancelTimer(timerId);
 		}
-		os::SystemInfo systemInfo;
-		os::System::GetSystemInfo(systemInfo);
-
 		completeComponents.clear();
 		this->mStatus = ServerStatus::Ready;
+#ifdef __DEBUG__
+		os::SystemInfo systemInfo;
+		os::System::GetSystemInfo(systemInfo);
 		this->mStartMemory = systemInfo.use_memory;
+#endif
 		long long t = help::Time::NowMil() - this->mStartTime;
-		LOG_INFO("  ===== start {} ok [{:.3f}s] =======", this->Name(), t / 1000.0f);
+		LOG_BY_NAME("app", "  ===== start {} ok [{:.3f}s] =======", this->Name(), t / 1000.0f);
 
 		//VLDEnable();
 	}

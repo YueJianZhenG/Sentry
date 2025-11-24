@@ -3,9 +3,66 @@
 //
 #include <cassert>
 #include "SqlFactory.h"
-
+#include "fmt.h"
 namespace sql
 {
+
+	void Factory::WriteValue(const json::r::Value& jsonValue)
+	{
+		switch (jsonValue.GetType())
+		{
+		case YYJSON_TYPE_ARR:
+		case YYJSON_TYPE_OBJ:
+			{
+				size_t count = 0;
+				std::unique_ptr<char> json;
+				if(jsonValue.ToCString(json, count))
+				{
+					this->WriteSafeString(json.get(), count);
+				}
+				break;
+			}
+		case YYJSON_TYPE_STR:
+			{
+				size_t size = 0;
+				const char * str = jsonValue.GetString(size);
+				this->WriteSafeString(str, size);
+				break;
+			}
+		case YYJSON_TYPE_NUM:
+			{
+				if(jsonValue.GetSubType() == YYJSON_SUBTYPE_REAL)
+				{
+					double value = 0;
+					jsonValue.Get(value);
+					this->buffer << value;
+				}
+				else
+				{
+					long long value = 0;
+					jsonValue.Get(value);
+					this->buffer << value;
+				}
+				break;
+			}
+		case YYJSON_TYPE_BOOL:
+			{
+				bool value = false;
+				jsonValue.Get(value);
+				this->buffer << (value ? "TRUE" : "FALSE");
+				break;
+			}
+		case YYJSON_TYPE_NULL:
+			{
+				this->buffer << "NULL";
+				break;
+			}
+		default:
+			assert(false);
+			break;
+		}
+	}
+
 
 	void Factory::WriteValue(const std::vector<const char*>& keys, const json::r::Value& message)
 	{
@@ -13,59 +70,12 @@ namespace sql
 		for (size_t index = 0; index < keys.size(); index++)
 		{
 			message.Get(keys.at(index), jsonValue);
-			switch (jsonValue.GetType())
-			{
-				case YYJSON_TYPE_ARR:
-				case YYJSON_TYPE_OBJ:
-				{
-					size_t count = 0;
-					std::unique_ptr<char> json;
-					if(jsonValue.ToCString(json, count))
-					{
-						this->WriteSafeString(json.get(), count);
-					}
-					break;
-				}
-				case YYJSON_TYPE_STR:
-				{
-					size_t size = 0;
-					const char * str = jsonValue.GetString(size);
-					this->WriteSafeString(str, size);
-					break;
-				}
-				case YYJSON_TYPE_NUM:
-				{
-					if(jsonValue.GetSubType() == YYJSON_SUBTYPE_REAL)
-					{
-						double value = 0;
-						jsonValue.Get(value);
-						this->buffer << value;
-					}
-					else
-					{
-						long long value = 0;
-						jsonValue.Get(value);
-						this->buffer << value;
-					}
-					break;
-				}
-				case YYJSON_TYPE_BOOL:
-				{
-					bool value = false;
-					jsonValue.Get(value);
-					this->buffer << (value ? "TRUE" : "FALSE");
-					break;
-				}
-				default:
-					assert(false);
-					break;
-			}
+			this->WriteValue(jsonValue);
 			if (index < keys.size() - 1)
 			{
 				this->buffer << ",";
 			}
 		}
-
 	}
 
 	Factory& Factory::Insert(const json::r::Value& document)
@@ -184,58 +194,22 @@ namespace sql
 			this->buffer.write(set, (std::streamsize )count);
 			return *this;
 		}
-		json::r::Value jsonValue;
-		std::vector<const char*> keys = document.GetAllKey();
-		for (const char* key: keys)
+		if(document.GetType() == YYJSON_TYPE_OBJ)
 		{
-			count++;
-			this->buffer << key << "=";
-			document.Get(key, jsonValue);
-			switch (jsonValue.GetType())
+			json::r::Value jsonValue;
+			std::vector<const char*> keys = document.GetAllKey();
+			for (const char* key: keys)
 			{
-				case YYJSON_TYPE_NUM:
+				count++;
+				this->buffer << key << "=";
+				if(document.Get(key, jsonValue))
 				{
-					long long number = 0;
-					if (jsonValue.Get(number))
-					{
-						this->buffer << number;
-					}
-					break;
+					this->WriteValue(jsonValue);
 				}
-				case YYJSON_TYPE_BOOL:
+				if(count < keys.size())
 				{
-					bool value = false;
-					if (jsonValue.Get(value))
-					{
-						this->buffer << (value ? "TRUE" : "FALSE");
-					}
-					break;
+					this->Next();
 				}
-				case YYJSON_TYPE_STR:
-				{
-					size_t size = 0;
-					const char* str = jsonValue.GetString(size);
-					if (str != nullptr && size > 0)
-					{
-						this->WriteSafeString(str, size);
-					}
-					break;
-				}
-				case YYJSON_TYPE_OBJ:
-				case YYJSON_TYPE_ARR:
-				{
-					size_t count = 0;
-					std::unique_ptr<char> json;
-					if(jsonValue.ToCString(json, count))
-					{
-						this->WriteSafeString(json.get(), count);
-					}
-					break;
-				}
-			}
-			if(count < keys.size())
-			{
-				this->Next();
 			}
 		}
 		return *this;
@@ -265,84 +239,66 @@ namespace sql
 			}
 			return *this;
 		}
-		std::vector<const char*> keys = filter.GetAllKey();
-		if(keys.empty())
+		if(filter.IsArray())
 		{
-			return *this;
-		}
-		this->buffer << " WHERE ";
-		for (size_t index = 0; index < keys.size(); index++)
-		{
-			json::r::Value jsonValue;
-			if (filter.Get(keys.at(index), jsonValue))
+			std::string key;
+			this->buffer << " WHERE ";
+			size_t count = filter.MemberCount();
+			for(size_t index = 0; index < count; index++)
 			{
-				switch(jsonValue.GetType())
+				json::r::Value jsonValue;
+				json::r::Value firstValue;
+				if (filter.Get(index, jsonValue) && jsonValue.GetFirst(key, firstValue))
 				{
-					case YYJSON_TYPE_NUM:
+					this->buffer << key << '=';
+					this->WriteValue(firstValue);
+					if (index + 1 < count)
 					{
-						long long number = 0;
-						if(jsonValue.Get(number))
-						{
-							this->buffer << keys.at(index) << "=";
-							this->buffer << number;
-						}
-						break;
+						this->buffer << " OR ";
 					}
-					case YYJSON_TYPE_STR:
-					{
-						size_t size = 0;
-						const char * str = jsonValue.GetString(size);
-						if(str != nullptr && size > 0)
-						{
-							this->buffer << keys.at(index) << "=";
-							this->WriteSafeString(str, size);
-						}
-						break;
-					}
-					case YYJSON_TYPE_ARR:
+				}
+			}
+		}
+		else if(filter.IsObject())
+		{
+			std::vector<const char*> keys = filter.GetAllKey();
+			if(keys.empty())
+			{
+				return *this;
+			}
+			this->buffer << " WHERE ";
+			for (size_t index = 0; index < keys.size(); index++)
+			{
+				json::r::Value jsonValue;
+				if (filter.Get(keys.at(index), jsonValue))
+				{
+					if(jsonValue.GetType() == YYJSON_TYPE_ARR)
 					{
 						json::r::Value jsonItem;
+						this->buffer << keys.at(index) << " IN(";
 						size_t arrayCount = jsonValue.MemberCount();
 						for(size_t x = 0; x < arrayCount; x++)
 						{
-							jsonValue.Get(x, jsonItem);
-							if (jsonItem.GetType() == YYJSON_TYPE_STR)
+							if(jsonValue.Get(x, jsonItem))
 							{
-								size_t count = 0;
-								const char* item = jsonItem.GetString(count);
-								if (item != nullptr && count > 0)
-								{
-									this->buffer << keys.at(index) << "=";
-									this->WriteSafeString(item, count);
-								}
-							}
-							else if (jsonItem.GetType() == YYJSON_TYPE_NUM)
-							{
-								long long number = 0;
-								if(jsonItem.Get(number))
-								{
-									this->buffer << keys.at(index) << "=" << number;
-								}
-							}
-							else if(jsonItem.GetType() == YYJSON_TYPE_BOOL)
-							{
-								bool number = false;
-								if(jsonItem.Get(number))
-								{
-									this->buffer << keys.at(index) << "=" << (number ? "TRUE" : "FALSE");
-								}
+								this->WriteValue(jsonItem);
 							}
 							if(x < arrayCount - 1)
 							{
-								this->buffer << " OR ";
+								this->buffer << ",";
 							}
 						}
-						break;
+						this->buffer << ')';
 					}
-				}
-				if (index + 1 < keys.size())
-				{
-					this->buffer << " AND ";
+					else
+					{
+						this->buffer << keys.at(index) << '=';
+						this->WriteValue(jsonValue);
+					}
+					if (index + 1 < keys.size())
+					{
+						this->buffer << " AND ";
+					}
 				}
 			}
 		}
@@ -469,12 +425,12 @@ namespace sql
 	Factory& Factory::Execute(const std::string& stmt, json::r::Value& args)
 	{
 		this->buffer.str("");
+		size_t count = args.MemberCount();
 		this->buffer << "EXECUTE " << stmt << " USING ";
-		std::vector<const char *> keys = args.GetAllKey();
-		for(size_t index = 0; index < keys.size(); index++)
+		for(size_t index = 0; index < count; index++)
 		{
-			this->buffer << '@' << keys.at(index);
-			if(index < keys.size() - 1)
+			this->buffer << fmt::format("@A{}", ++index);
+			if(index < count - 1)
 			{
 				this->buffer << ',';
 			}
@@ -486,67 +442,21 @@ namespace sql
 	{
 		this->buffer.str("");
 		this->buffer << "SET ";
-		std::vector<const char *> keys = jsonArgs.GetAllKey();
-		for(size_t index = 0; index < keys.size(); index++)
+		size_t length = jsonArgs.MemberCount();
+		for(size_t index = 0; index < length; index++)
 		{
 			json::r::Value jsonValue;
-			const char * key = keys.at(index);
-			this->buffer << '@' << key << '=';
-			jsonArgs.Get(key, jsonValue);
-			switch(jsonValue.GetType())
+			if(jsonArgs.Get(index, jsonValue))
 			{
-			case YYJSON_TYPE_NUM:
-				{
-					if(jsonValue.GetSubType() == YYJSON_SUBTYPE_REAL)
-					{
-						double value = 0;
-						jsonValue.Get(value);
-						this->buffer << value;
-					}
-					else
-					{
-						long long value = 0;
-						jsonValue.Get(value);
-						this->buffer << value;
-					}
-					break;
-				}
-			case YYJSON_TYPE_STR:
-				{
-					size_t count = 0;
-					const char * str = jsonValue.GetString(count);
-					this->WriteSafeString(str, count);
-					break;
-				}
-			case YYJSON_TYPE_BOOL:
-				{
-					bool value = false;
-					jsonValue.Get(value);
-					this->buffer << (value ? "TRUE" : "FALSE");
-					break;
-				}
-			case YYJSON_TYPE_ARR:
-			case YYJSON_TYPE_OBJ:
-				{
-					size_t count = 0;
-					std::unique_ptr<char> json;
-					if(jsonValue.ToCString(json, count))
-					{
-						this->WriteSafeString(json.get(), count);
-					}
-					break;
-				}
-			case YYJSON_TYPE_NULL:
-				{
-					this->buffer << "NULL";
-					break;
-				}
+				this->buffer << fmt::format("@A{}=", ++index);
+				this->WriteValue(jsonValue);
 			}
-			if(index < keys.size() -1)
+			if(index < length -1)
 			{
 				this->buffer << ',';
 			}
 		}
+		this->Next(';');
 		return *this;
 	}
 
@@ -558,50 +468,7 @@ namespace sql
 		for(size_t index = 0; index < args.size(); index++)
 		{
 			json::r::Value & jsonValue = args.at(index);
-			switch(jsonValue.GetType())
-			{
-				case YYJSON_TYPE_NUM:
-				{
-					if(jsonValue.GetSubType() == YYJSON_SUBTYPE_REAL)
-					{
-						double value = 0;
-						jsonValue.Get(value);
-						this->buffer << value;
-					}
-					else
-					{
-						long long value = 0;
-						jsonValue.Get(value);
-						this->buffer << value;
-					}
-					break;
-				}
-				case YYJSON_TYPE_STR:
-				{
-					size_t count = 0;
-					const char * str = jsonValue.GetString(count);
-					this->WriteSafeString(str, count);
-					break;
-				}
-				case YYJSON_TYPE_BOOL:
-				{
-					bool value = false;
-					jsonValue.Get(value);
-					this->buffer << (value ? "TRUE" : "FALSE");
-					break;
-				}
-				case YYJSON_TYPE_ARR:
-				case YYJSON_TYPE_OBJ:
-				{
-					size_t count = 0;
-					std::unique_ptr<char> json;
-					if(jsonValue.ToCString(json, count))
-					{
-						this->WriteSafeString(json.get(), count);
-					}
-					break;
-				}
-			}
+			this->WriteValue(jsonValue);
 			if(index < args.size() - 1)
 			{
 				this->buffer << ',';

@@ -11,13 +11,13 @@ namespace notify
 	struct Data
 	{
 	public:
-		Data(const std::string& k, const std::string& v)
-				: key(k), value(v), color("")
+		Data(std::string k, std::string v, std::string color = "comment")
+				: key(std::move(k)), value(std::move(v)), color(std::move(color))
 		{
 		}
-		std::string color;
 		const std::string key;
 		const std::string value;
+		const std::string color;
 	};
 
 	struct Base
@@ -36,7 +36,7 @@ namespace notify
 	struct TemplateCard : public Base
 	{
 		std::string title;
-		notify::Jump Jump;
+		notify::Jump jump;
 		std::vector<Data> data;
 	};
 
@@ -62,6 +62,7 @@ namespace acs
 	private:
 		bool Awake() final;
 		bool LateAwake() final;
+		void OnComplete() final;
 	private:
 		std::string mWxUrl;
 		std::string mDingUrl;

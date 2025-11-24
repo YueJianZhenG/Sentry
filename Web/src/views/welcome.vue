@@ -198,7 +198,7 @@ export default {
                 await this.query_operator_record();
             }
             catch (e) {
-                ElMessage.error("拉取操作记录失败")
+                //ElMessage.error("拉取操作记录失败")
             }
 
             this.loading = false

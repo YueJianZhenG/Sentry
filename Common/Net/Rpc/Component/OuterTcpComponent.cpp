@@ -6,10 +6,11 @@
 #include"Rpc/Client/OuterTcpSession.h"
 #include"Server/Config/CodeConfig.h"
 
-#include"Entity/Actor/App.h"
-#include"Core/Event/IEvent.h"
+#include "Entity/Actor/App.h"
 #include "Core/System/System.h"
 
+
+constexpr size_t FRAME_MAX_BROADCAST_COUNT = 200; //每帧最大广播数量
 namespace acs
 {
 	OuterTcpComponent::OuterTcpComponent()
@@ -26,28 +27,8 @@ namespace acs
 		{
 			jsonObject.Get("outer", this->mMaxConnectCount);
 		}
-		help::PlayerLoginEvent::Add(this, &OuterTcpComponent::OnPlayerLogin);
-		help::PlayerLogoutEvent::Add(this, &OuterTcpComponent::OnPlayerLogout);
 		LOG_CHECK_RET_FALSE(this->mOuter = this->mApp->GetComponent<rpc::IOuterMessage>());
 		return true;
-	}
-
-	void OuterTcpComponent::OnPlayerLogin(long long userId, int sockId)
-	{
-		auto iter = this->mGateClientMap.find(sockId);
-		if(iter != this->mGateClientMap.end())
-		{
-			iter->second->BindPlayer(userId);
-		}
-	}
-
-	void OuterTcpComponent::OnPlayerLogout(long long userId, int sockId)
-	{
-		auto iter = this->mGateClientMap.find(sockId);
-		if(iter != this->mGateClientMap.end())
-		{
-			this->mGateClientMap.erase(iter);
-		}
 	}
 
 	void OuterTcpComponent::OnMessage(rpc::Message * req, rpc::Message *) noexcept
@@ -67,8 +48,8 @@ namespace acs
 		{
 			--this->mWaitCount;
 		}
-		auto iter = this->mGateClientMap.find(id);
-		if (iter == this->mGateClientMap.end())
+		auto iter = this->mSessions.find(id);
+		if (iter == this->mSessions.end())
 		{
 			return XCode::SendMessageFail;
 		}
@@ -84,11 +65,17 @@ namespace acs
 		}
 
 		int sockId = this->mSocketPool.BuildNumber();
+		auto iter = this->mSessions.find(sockId);
+		while(iter != this->mSessions.end())
+		{
+			sockId = this->mSocketPool.BuildNumber();
+			iter = this->mSessions.find(sockId);
+		}
 		Asio::Context & io = this->mApp->GetContext();
 		std::shared_ptr<rpc::OuterTcpSession> outerNetClient = std::make_shared<rpc::OuterTcpSession>(sockId, this, io);
 		{
 			outerNetClient->StartReceive(socket);
-			this->mGateClientMap.emplace(sockId, outerNetClient);
+			this->mSessions.emplace(sockId, outerNetClient);
 		}
 		//LOG_DEBUG("[{}] connect gate server count:{}", socket->GetAddress(), this->mGateClientMap.size())
 		return true;
@@ -96,13 +83,13 @@ namespace acs
 
 	void OuterTcpComponent::OnClientError(int id, int code)
 	{
-		auto iter = this->mGateClientMap.find(id);
-		if(iter != this->mGateClientMap.end())
+		auto iter = this->mSessions.find(id);
+		if(iter == this->mSessions.end())
 		{
-			long long playerId = iter->second->GetPlayerId();
-			help::PlayerLogoutEvent::Trigger(playerId, id);
+			return;
 		}
-		LOG_DEBUG("remove client({}) count:{}", id, this->mGateClientMap.size());
+		this->mSessions.erase(iter);
+		LOG_DEBUG("remove client({}) count:{}", id, this->mSessions.size());
 	}
 
 	void OuterTcpComponent::OnSendFailure(int id, rpc::Message* req)
@@ -121,12 +108,10 @@ namespace acs
 
 	void OuterTcpComponent::StartClose(int id, int code)
 	{
-		auto iter = this->mGateClientMap.find(id);
-		if(iter != this->mGateClientMap.end())
+		auto iter = this->mSessions.find(id);
+		if(iter != this->mSessions.end())
 		{
 			iter->second->Stop();
-			long long playerId = iter->second->GetPlayerId();
-			help::PlayerLogoutEvent::Trigger(playerId, id);
 		}
 	}
 
@@ -135,22 +120,23 @@ namespace acs
 		std::unique_ptr<json::w::Value> data = document.AddObject("outer");
 		{
 			data->Add("wait", this->mWaitCount);
-			data->Add("client", this->mGateClientMap.size());
+			data->Add("client", this->mSessions.size());
 		}
     }
 
 	void OuterTcpComponent::Broadcast(std::unique_ptr<rpc::Message>& message) noexcept
 	{
 		message->SetType(rpc::type::request);
-		for(auto iter = this->mGateClientMap.begin(); iter != this->mGateClientMap.end(); iter++)
+	}
+
+	void OuterTcpComponent::OnFrameUpdate(int elapse) noexcept
+	{
+		for(size_t index = 0; index < FRAME_MAX_BROADCAST_COUNT && !this->mBroadCastMessages.empty(); index++)
 		{
-			if(iter->second->GetPlayerId() > 0)
+			std::unique_ptr<rpc::Message> & broadCastMessage = this->mBroadCastMessages.front();
 			{
-				continue;
-			}
-			std::unique_ptr<rpc::Message> broadCastMessage = message->Clone();
-			{
-				iter->second->Send(broadCastMessage);
+				this->Send(broadCastMessage->SockId(), broadCastMessage);
+				this->mBroadCastMessages.pop();
 			}
 		}
 	}

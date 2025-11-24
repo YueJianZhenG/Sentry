@@ -26,6 +26,7 @@ namespace acs
         RpcConfig();
 	public:
 		void GetRpcMethods(std::vector<std::string> & methods) const;
+    	const RpcMethodConfig * GetMethodConfig(int opcode) const;
 		const RpcMethodConfig * GetMethodConfig(const std::string & fullName) const;
 		bool GetMethodConfigs(std::vector<const RpcMethodConfig *> & configs, int type) const;
 		bool GetMethodConfigs(const std::string & name, std::vector<const RpcMethodConfig *> & configs) const;
@@ -36,6 +37,7 @@ namespace acs
         RpcMethodConfig* MakeConfig(const std::string& name);
     private:
 		std::unordered_set<std::string> mAllServices;
+    	std::unordered_map<int, RpcMethodConfig *> mRpcOpcodeMethodConfig;
         std::unordered_map<std::string, std::unique_ptr<RpcMethodConfig>> mRpcMethodConfig;
     };
 

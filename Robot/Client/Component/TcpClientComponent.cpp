@@ -69,19 +69,17 @@ namespace acs
 
 	void TcpClientComponent::OnSendFailure(int id, rpc::Message* message)
 	{
-		if(message->GetType() == rpc::type::request && message->GetRpcId() > 0)
+		std::unique_ptr<rpc::Message> request(message);
+		if(request->GetType() == rpc::type::request && request->GetRpcId() > 0)
 		{
-			message->SetType(rpc::type::response);
-			message->GetHead().Add(rpc::Header::code, XCode::SendMessageFail);
-			this->OnMessage(message, nullptr);
-			return;
+			request->SetType(rpc::type::response);
+			request->GetHead().Add(rpc::Header::code, XCode::SendMessageFail);
+			this->mDisComponent->OnMessage(request);
 		}
-		delete message;
 	}
 
 	void TcpClientComponent::OnMessage(rpc::Message* req, rpc::Message*) noexcept
 	{
-
 		std::unique_ptr<rpc::Message> message(req);
 		switch(message->GetType())
 		{

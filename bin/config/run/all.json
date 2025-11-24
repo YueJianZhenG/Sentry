@@ -10,10 +10,7 @@
 		"name": "${name}"
 	},
 	"lua": {
-		"main": "${lua}",
-		"modules" : [
-			"RegistryComponent"
-		]
+		"main": "${lua}"
 	},
 	"http": {
 		"auth": false,

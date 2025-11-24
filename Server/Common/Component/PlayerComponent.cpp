@@ -1,16 +1,16 @@
 //
 // Created by 64658 on 2025/4/3.
 //
-
 #include "PlayerComponent.h"
-#include "XCode/XCode.h"
+#include "Gate/Service/GateSystem.h"
 #include "Rpc/Config/ServiceConfig.h"
-
+#include "Cluster/Config/ClusterConfig.h"
+#include "Node/Component/NodeComponent.h"
 namespace acs
 {
 	PlayerComponent::PlayerComponent()
 	{
-
+		this->mNode = nullptr;
 	}
 
 	Player* PlayerComponent::Get(long long playerId)
@@ -23,45 +23,56 @@ namespace acs
 		return iter != this->mPlayers.end() ? iter->second.get() : nullptr;
 	}
 
+	bool PlayerComponent::LateAwake()
+	{
+		this->mNode = this->GetComponent<NodeComponent>();
+		return true;
+	}
+
 	Actor* PlayerComponent::GetActor(long long playerId)
 	{
 		auto iter = this->mPlayers.find(playerId);
 		return iter != this->mPlayers.end() ? iter->second.get() : nullptr;
 	}
 
-	int PlayerComponent::Broadcast(std::unique_ptr<rpc::Message> message, int & count)
+	int PlayerComponent::Broadcast(std::unique_ptr<rpc::Message>& message)
 	{
-		count = 0;
-		std::string func;
-		if(!message->GetHead().Get(rpc::Header::func, func))
+		int count = 0;
+		do
 		{
-			return XCode::NotFoundRpcConfig;
-		}
-		const RpcMethodConfig * rpcMethodConfig = RpcConfig::Inst()->GetMethodConfig(func);
-		if(rpcMethodConfig == nullptr)
-		{
-			return XCode::NotFoundRpcConfig;
-		}
-		const std::string & server = rpcMethodConfig->server;
-		for(auto iter = this->mPlayers.begin(); iter != this->mPlayers.end(); iter++)
-		{
-			int sockId = iter->second->GetClientID();
-			std::unique_ptr<Player>& player = iter->second;
-			if (!rpcMethodConfig->to_client && !player->GetServerId(server, sockId))
+			std::string func;
+			if(!message->GetHead().Get(rpc::Header::func, func))
 			{
-				continue;
+				break;
 			}
-			std::unique_ptr<rpc::Message> rpcMessage = message->Clone();
+			const RpcMethodConfig * rpcMethodConfig = RpcConfig::Inst()->GetMethodConfig(func);
+			if(rpcMethodConfig == nullptr)
 			{
-				rpcMessage->SetSockId(sockId);
-				rpcMessage->GetHead().Set(rpc::Header::id, std::to_string(iter->first));
-				if (player->Send(rpcMessage) == XCode::Ok)
+				break;
+			}
+			std::string node;
+			std::string name = ComponentFactory::GetName<GateSystem>();
+			if(!ClusterConfig::Inst()->GetServerName(name, node))
+			{
+				break;
+			}
+			for(int nodeId : this->mNode->GetNodes(node))
+			{
+				Actor * node = this->mNode->Get(nodeId);
+				if(node != nullptr)
 				{
 					++count;
+					std::unique_ptr<rpc::Message> request = message->Clone();
+					{
+						request->SetSockId(nodeId);
+						request->SetType(rpc::type::broadcast);
+						node->Send(request);
+					}
 				}
 			}
 		}
-		return XCode::Ok;
+		while(false);
+		return count;
 	}
 
 	bool PlayerComponent::Remove(long long playerId, bool notice)

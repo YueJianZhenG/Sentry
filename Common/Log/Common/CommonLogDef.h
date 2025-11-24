@@ -18,6 +18,8 @@ inline std::string FormatFileLine(const char * file, const int line)
 	return fmt::format("{}:{}", file, line);
 }
 
+
+
 #if LOG_LEVEL_INFO >= SET_LOG_LEVEL
 #define LOG_INFO(...) \
 {                             \
@@ -25,7 +27,7 @@ inline std::string FormatFileLine(const char * file, const int line)
 		log->Content = fmt::format(__VA_ARGS__);                \
     	log->Level = custom::LogLevel::Info;                   \
 		log->File = FormatFileLine(__FILE__, __LINE__);   		\
-		Debug::Log(std::move(log));    									\
+		Debug::Log(log);    									\
 }
 #else
 #define LOG_INFO(...)
@@ -39,7 +41,7 @@ inline std::string FormatFileLine(const char * file, const int line)
 		log->Content = fmt::format(__VA_ARGS__);                \
     	log->Level = custom::LogLevel::Debug;                   \
 		log->File = FormatFileLine(__FILE__, __LINE__);   		\
-		Debug::Log(std::move(log));    									\
+		Debug::Log(log);    									\
 }
 #else
 #define LOG_DEBUG(...)
@@ -52,7 +54,7 @@ inline std::string FormatFileLine(const char * file, const int line)
 		log->Content = fmt::format(__VA_ARGS__);                \
     	log->Level = custom::LogLevel::Warn;                   \
 		log->File = FormatFileLine(__FILE__, __LINE__);   		\
-		Debug::Log(std::move(log));    									\
+		Debug::Log(log);    									\
 }
 #else
 #define LOG_WARN(...)
@@ -65,7 +67,7 @@ inline std::string FormatFileLine(const char * file, const int line)
 		log->Content = fmt::format(__VA_ARGS__);                \
     	log->Level = custom::LogLevel::Error;                   \
 		log->File = FormatFileLine(__FILE__, __LINE__);   		\
-		Debug::Log(std::move(log));    									\
+		Debug::Log(log);    									\
 }
 #else
 #define LOG_ERROR(...)
@@ -78,11 +80,32 @@ inline std::string FormatFileLine(const char * file, const int line)
 		log->Content = fmt::format(__VA_ARGS__);                \
     	log->Level = custom::LogLevel::Fatal;                   \
 		log->File = FormatFileLine(__FILE__, __LINE__);   		\
-		Debug::Log(std::move(log));    									\
+		Debug::Log(log);    									\
 }
 #else
 #define LOG_FATAL(...)
 #endif
+
+
+#define LOG_BY_NAME(name, ...) \
+{                                      \
+	std::unique_ptr<custom::LogInfo> log = std::make_unique<custom::LogInfo>();          \
+	log->Content = fmt::format(__VA_ARGS__);                \
+	log->Level = custom::LogLevel::None;                   \
+	log->File = FormatFileLine(__FILE__, __LINE__);   		\
+	Debug::Log(name, log);    									\
+}
+
+#define CONSOLE_BY_NAME(name, ...) \
+{                                      \
+	std::unique_ptr<custom::LogInfo> log = std::make_unique<custom::LogInfo>();          \
+	log->Content = fmt::format(__VA_ARGS__);                \
+	log->Level = custom::LogLevel::None;                   \
+	log->File = FormatFileLine(__FILE__, __LINE__);   		\
+	Debug::Console(name, log);    									\
+}
+
+
 
 #define LOG_CHECK_RET(obj) \
 {                                \

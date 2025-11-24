@@ -171,7 +171,6 @@ namespace mysql
 				return XCode::NetConnectFailure;
 			}
 		}
-
 		if (!this->SyncReadOnePacket(this->mResponse))
 		{
 			return XCode::NetReadFailure;
@@ -362,6 +361,7 @@ namespace mysql
 	{
 		if (code.value() != Asio::OK)
 		{
+			LOG_ERROR("client:{} connect => {}", this->mClientID, count)
 			if (count <= this->mConfig.conn_count)
 			{
 				this->Connect(10);
@@ -370,6 +370,7 @@ namespace mysql
 		}
 		else if (this->Auth(false) == XCode::Ok)
 		{
+			LOG_DEBUG("client:{} connect ok", this->mClientID)
 			this->OnCompileSql();
 			if (this->mMessage == nullptr)
 			{
@@ -409,6 +410,7 @@ namespace mysql
 	void Client::OnSendMessage(const Asio::Code& code)
 	{
 		this->Connect(10);
+		LOG_ERROR("client:{} send error => {}", this->mClientID, code.message())
 	}
 
 	void Client::OnReadError(const Asio::Code& code)
@@ -417,6 +419,7 @@ namespace mysql
 		{
 			this->Connect(10);
 		}
+		LOG_ERROR("client:{} read error => {}", this->mClientID, code.message())
 	}
 
 	void Client::OnReceiveLine(std::istream& readStream, size_t size)
@@ -449,6 +452,7 @@ namespace mysql
 					this->mFields.emplace_back(fieldInfo);
 				}
 			}
+			wrap::string<true> json;
 			while (columnCount > 0 && this->SyncReadOnePacket(this->mResponse))
 			{
 				code = this->mResponse.GetPackageCode();
@@ -460,11 +464,11 @@ namespace mysql
 				json::w::Document document;
 				this->OnTextMessage(document);
 
-				size_t count = 0;
-				std::unique_ptr<char> json;
-				if(document.Serialize(json, count))
+				if(document.Serialize(json))
 				{
-					response->contents.emplace_back(json.get(), count);
+					size_t size = json.size();
+					const char * str = json.c_str();
+					response->contents.emplace_back(str, size);
 				}
 			}
 		}
@@ -543,7 +547,6 @@ namespace mysql
 				std::unique_ptr<mysql::Response> response1 = this->ReadAllPacket();
 				if(response1->GetPackageCode() == mysql::PACKAGE_ERR)
 				{
-					LOG_ERROR("{}", response1->GetBuffer())
 					response->error.emplace_back(response1->GetBuffer());
 				}
 				else

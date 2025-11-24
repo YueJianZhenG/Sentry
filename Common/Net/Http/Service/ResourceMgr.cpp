@@ -13,21 +13,14 @@ namespace acs
 {
 	bool ResourceMgr::Awake()
 	{
-		json::r::Value webObject;
-		json::r::Value jsonObject;
-		if (!this->mApp->Config().Get("http", jsonObject))
+		const ServerConfig & config = this->mApp->Config();
 		{
-			return false;
+			json::r::Value jsonObject;
+			LOG_CHECK_RET_FALSE(config.Get("http", jsonObject))
+			LOG_CHECK_RET_FALSE(config.GetPath("res", this->mUpload));
+			LOG_CHECK_RET_FALSE(jsonObject.Get("domain", this->mDoMain))
 		}
-		jsonObject.Get("domain", this->mDoMain);
-		if(!jsonObject.Get("upload", this->mUpload))
-		{
-			return false;
-		}
-		if(!help::dir::DirectorIsExist(this->mUpload))
-		{
-			help::dir::MakeDir(this->mUpload);
-		}
+		LOG_CHECK_RET_FALSE(help::dir::MakeDir(this->mUpload))
 		return true;
 	}
 
@@ -50,7 +43,7 @@ namespace acs
             return XCode::CallArgsError;
         }
         std::string fileName;
-        std::string path = fmt::format("{}/{}", this->mUpload, fileName);
+        std::string path = fmt::format("{}/{}", this->mUpload, file);
         {
             size_t pos = path.find_last_of('/');
             if(pos != std::string::npos)
@@ -75,7 +68,7 @@ namespace acs
 		do
 		{
 			path = fmt::format("{}/{}", this->mUpload, file);
-			if(help::fs::FileIsExist(path))
+			if(help::fs::FileIsExist(path.c_str()))
 			{
 				break;
 			}

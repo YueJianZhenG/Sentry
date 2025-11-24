@@ -37,11 +37,10 @@ namespace lua
 			}
 			case LUA_TTABLE:
 			{
-				size_t count = 0;
-				std::unique_ptr<char> json;
-				if(lua::yyjson::read(lua, index, json, count))
+				wrap::string<true> json;
+				if(lua::yyjson::read(lua, index, json))
 				{
-					request->AddParameter(json.get(), count);
+					request->AddParameter(json.c_str(), json.size());
 				}
 				break;
 			}
@@ -59,21 +58,18 @@ namespace lua
 
 	int redis::Run(lua_State* lua)
     {
-		static RedisComponent* redisComponent = nullptr;
-		if(redisComponent == nullptr)
+		static RedisComponent* redisComponent = App::Get<RedisComponent>();
+
+		size_t count = 0;
+		const char * cmd = luaL_checklstring(lua, 1, &count);
+		if(cmd == nullptr || count <= 0)
 		{
-			redisComponent = App::Get<RedisComponent>();
-			if (redisComponent == nullptr)
-			{
-				luaL_error(lua, "RedisComponent Is Null");
-				return 0;
-			}
+			return 0;
 		}
-        lua_pushthread(lua);
-        const char* command = luaL_checkstring(lua, 1);
+
         std::unique_ptr<::redis::Request> request = std::make_unique<::redis::Request>();
 		{
-			request->SetCommand(command);
+			request->SetCommand(cmd, count);
 			int count = (int)luaL_len(lua, 2);
 			for (int i = 0; i < count; i++)
 			{
@@ -84,24 +80,19 @@ namespace lua
 			}
 		}
 		int id = 0;
+		lua_pushthread(lua);
 		redisComponent->Send(request, id);
         return redisComponent->AddTask(new LuaRedisTask(lua, id))->Await();
     }
 
 	int redis::Call(lua_State* lua)
     {
-		static RedisComponent* redisComponent = nullptr;
-		if(redisComponent == nullptr)
-		{
-			redisComponent = App::Get<RedisComponent>();
-			if (redisComponent == nullptr)
-			{
-				luaL_error(lua, "RedisComponent Is Null");
-				return 0;
-			}
-		}
+		static RedisComponent* redisComponent = App::Get<RedisComponent>();
+		size_t count = 0;
+		const char * name = luaL_checklstring(lua, 1, &count);
+
 		RedisLuaData redisLuaData;
-		redisLuaData.name = luaL_checkstring(lua, 1);
+		redisLuaData.name.assign(name, count);
 		switch(lua_type(lua, 2))
 		{
 			case LUA_TSTRING:
@@ -115,31 +106,30 @@ namespace lua
 				lua::yyjson::read(lua, 2, redisLuaData.json);
 				break;
 			default:
-				luaL_error(lua, "parameter must table or string");
+				LOG_ERROR("parameter must table or string");
 				return 0;
 		}
-		int id = 0;
+		int rpcId = 0;
         lua_pushthread(lua);
-		redisComponent->Send(redisLuaData, id);
-        return redisComponent->AddTask(new LuaRedisTask(lua, id))->Await();
+		unsigned int timeout = 0;
+		redisComponent->Send(redisLuaData, rpcId, timeout);
+        return redisComponent->AddTask(new LuaRedisTask(lua, rpcId), timeout)->Await();
     }
 
     int redis::Send(lua_State *lua)
     {
-		static RedisComponent* redisComponent = nullptr;
-		if(redisComponent == nullptr)
+		static RedisComponent* redisComponent = App::Get<RedisComponent>();
+
+		size_t count = 0;
+		const char * cmd = luaL_checklstring(lua, 1, &count);
+		if(cmd == nullptr || count <= 0)
 		{
-			redisComponent = App::Get<RedisComponent>();
-			if (redisComponent == nullptr)
-			{
-				luaL_error(lua, "RedisComponent Is Null");
-				return 0;
-			}
+			return 0;
 		}
-        const char* command = luaL_checkstring(lua, 1);
+
 		std::unique_ptr<::redis::Request> request = std::make_unique<::redis::Request>();
 		{
-			request->SetCommand(command);
+			request->SetCommand(cmd, count);
 			int count = (int)luaL_len(lua, 2);
 			for (int i = 0; i < count; i++)
 			{
@@ -156,21 +146,14 @@ namespace lua
 
 	int sub_redis::Run(lua_State* L)
 	{
-		static RedisSubComponent* redisComponent = nullptr;
-		if(redisComponent == nullptr)
-		{
-			redisComponent = App::Get<RedisSubComponent>();
-			if (redisComponent == nullptr)
-			{
-				luaL_error(L, "RedisComponent Is Null");
-				return 0;
-			}
-		}
-		lua_pushthread(L);
-		const char * cmd = luaL_checkstring(L, 1);
+		static RedisSubComponent* redisComponent = App::Get<RedisSubComponent>();
+
+		size_t count = 0;
+		const char * cmd = luaL_checklstring(L, 1, &count);
+
 		std::unique_ptr<::redis::Request> request = std::make_unique<::redis::Request>();
 		{
-			request->SetCommand(cmd);
+			request->SetCommand(cmd, count);
 			int count = (int)luaL_len(L, 2);
 			for (int i = 0; i < count; i++)
 			{
@@ -181,6 +164,7 @@ namespace lua
 			}
 		}
 		int id = 0;
+		lua_pushthread(L);
 		redisComponent->Send(request, id);
 		return redisComponent->AddTask(new LuaRedisTask(L, id))->Await();
 	}

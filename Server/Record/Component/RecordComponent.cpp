@@ -31,7 +31,7 @@ namespace acs
 			return;
 		}
 		json::w::Document document;
-		long long id = help::ID::Create();
+		long long id = help::ID::Make();
 		long long nowTime = help::Time::NowSec();
 		{
 			document.Add("path", config.path);

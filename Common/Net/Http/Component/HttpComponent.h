@@ -37,8 +37,12 @@ namespace acs
 		std::unique_ptr<http::Response> Do(std::unique_ptr<http::Request> & request);
 		std::unique_ptr<http::Response> Do(std::unique_ptr<http::Request> & request, std::unique_ptr<http::Content> content);
 	public:
-		int Send(std::unique_ptr<http::Request>& request, std::function<void(std::unique_ptr<http::Response>&)> && cb);
+		std::unique_ptr<http::Content> Run(std::unique_ptr<http::Request> & request);
+		std::unique_ptr<http::Content> Run(std::unique_ptr<http::Request> & request, std::unique_ptr<http::Content> content);
+	public:
+		int Send(std::unique_ptr<http::Request>& request, int & taskId); // 异步发送
 		int Send(std::unique_ptr<http::Request>& request, std::unique_ptr<http::Response>& response, int & taskId); // 异步发送
+		int Send(std::unique_ptr<http::Request>& request, std::function<void(std::unique_ptr<http::Response>&)> && cb);
 	private:
 		bool Awake() final;
 		bool LateAwake() final;
@@ -46,7 +50,7 @@ namespace acs
 		std::shared_ptr<http::Client> CreateClient(http::Request * request);
 		void OnMessage(int taskId, http::Request *request, http::Response *response) noexcept final;
 	private:
-		class ThreadComponent * mNetComponent;
+		class ThreadComponent * mThread;
 #ifdef __ENABLE_OPEN_SSL__
 		asio::ssl::context mSslContext;
 		std::unordered_map<std::string, asio::ssl::context *> mSslContexts;

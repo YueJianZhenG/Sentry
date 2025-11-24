@@ -15,7 +15,7 @@ namespace custom
 		explicit FileOutput(FileConfig path);
 	private:
 		void Close() final;
-		void OnTick(int tick) final;
+		void OnNewDay() final;
 		bool Start(Asio::Context &io) final;
 		void Push(Asio::Context &io, const std::string &name, const custom::LogInfo &logInfo) final;
 	private:
@@ -28,7 +28,6 @@ namespace custom
 		size_t mFileLine;	//当前文件大小
 		FileConfig mConfig;
 		std::ofstream mDevStream;
-		long long mOpenFileTime; //上次打开文件时间
 	};
 }
 

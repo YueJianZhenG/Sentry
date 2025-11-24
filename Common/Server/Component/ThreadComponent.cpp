@@ -1,10 +1,10 @@
-﻿#include"ThreadComponent.h"
-#include"Entity/Actor/App.h"
-#include"Network/Tcp/Socket.h"
-#include"Core/System/System.h"
-#include"Log/Output/ConsoleOutput.h"
-#include"Util/Tools/String.h"
-#include"Util/Tools/TimeHelper.h"
+﻿#include "ThreadComponent.h"
+#include "Entity/Actor/App.h"
+#include "Network/Tcp/Socket.h"
+#include "Core/System/System.h"
+#include "Log/Output/ConsoleOutput.h"
+#include "Util/Tools/String.h"
+#include "Util/Tools/TimeHelper.h"
 namespace acs
 {
 
@@ -20,7 +20,6 @@ namespace acs
 #ifndef ONLY_MAIN_THREAD
     bool ThreadComponent::Awake()
 	{
-		std::unique_ptr<json::r::Value> jsonObject;
 		ServerConfig::Inst()->Get("thread", this->mConfig);
 		for (int index = 0; index < this->mConfig.count; index++)
 		{
@@ -42,41 +41,57 @@ namespace acs
 	void ThreadComponent::CloseThread()
 	{
 #ifndef ONLY_MAIN_THREAD
-		while(!this->mNetThreads.empty())
+		for(std::unique_ptr<custom::AsioThread> & netThread : this->mNetThreads)
 		{
-			std::unique_ptr<custom::AsioThread> & netThread = this->mNetThreads.front();
-			{
-				netThread->Stop();
-			}
-			this->mNetThreads.clear();
+			netThread->Stop();
 		}
+		this->mNetThreads.clear();
 #endif
 	}
 
 	void ThreadComponent::OnRecord(json::w::Document& document)
 	{
 		long long nowTime = help::Time::NowSec();
-		std::unique_ptr<json::w::Value> jsonValue = document.AddObject("thread");
-		jsonValue->AddObject("main")->Add("event_count", this->mApp->GetEventCount());
+		std::unique_ptr<json::w::Value> jsonArray = document.AddArray("thread");
+		{
+			std::unique_ptr<json::w::Value> jsonObject = jsonArray->AddObject();
+			{
+				jsonObject->Add("name", "main");
+				jsonObject->Add("event_count", this->mApp->GetEventCount());
+			}
+		}
 #ifndef ONLY_MAIN_THREAD
 		std::lock_guard<std::mutex> lock(this->mLock);
 		for(const std::unique_ptr<custom::AsioThread> & netThread : this->mNetThreads)
 		{
 			std::string key = std::to_string(netThread->GetId());
 			long long invite = nowTime - netThread->GetLastTime();
-			std::unique_ptr<json::w::Value> jsonObject = jsonValue->AddObject(key.c_str());
+			std::unique_ptr<json::w::Value> jsonObject = jsonArray->AddObject();
 			{
 				jsonObject->Add("invite", invite);
+				jsonObject->Add("thread_id", key);
+				jsonObject->Add("name", netThread->Name());
 				jsonObject->Add("event_count", netThread->GetEventCount());
 			}
 		}
-		jsonValue->Add("count", this->mNetThreads.size());
+
+		for(const std::unique_ptr<custom::AsioThread> & netThread : this->mNewThreads)
+		{
+			std::string key = std::to_string(netThread->GetId());
+			long long invite = nowTime - netThread->GetLastTime();
+			std::unique_ptr<json::w::Value> jsonObject = jsonArray->AddObject();
+			{
+				jsonObject->Add("invite", invite);
+				jsonObject->Add("thread_id", key);
+				jsonObject->Add("name", netThread->Name());
+				jsonObject->Add("event_count", netThread->GetEventCount());
+			}
+		}
 #endif
 	}
 #ifndef ONLY_MAIN_THREAD
 	void ThreadComponent::OnMonitor()
 	{
-		Asio::Context & main = this->mApp->GetContext();
 		std::chrono::seconds sleep(this->mConfig.monitor);
 		while(this->mConfig.monitor > 0)
 		{
@@ -85,17 +100,14 @@ namespace acs
 			std::lock_guard<std::mutex> lock(this->mLock);
 			for(const std::unique_ptr<custom::AsioThread> & netThread : this->mNetThreads)
 			{
+				int id = netThread->GetId();
+				const std::string & name = netThread->Name();
 				long long invite = nowTime - netThread->GetLastTime();
 				if(invite >= this->mConfig.monitor * 2)
 				{
-#ifdef __OS_WIN__
-					int id = netThread->GetId();
-					asio::post(main, [id, invite] {
-						LOG_FATAL("thread:{} update invite => {}", id, invite);
-					});
-#else
-
-#endif
+					std::string backtrack;
+					netThread->GetBacktrace(backtrack);
+					LOG_ERROR("[{}:{}] update invite => {}\n{}", name, id, invite, backtrack);
 				}
 			}
 		}
@@ -115,6 +127,19 @@ namespace acs
 		}
 		return this->mNetThreads[index]->Context();
 #endif
+	}
+
+	Asio::Context& ThreadComponent::NewContext(const std::string & name)
+	{
+		custom::AsioThread * asioThread = nullptr;
+		int index = (int)(this->mNetThreads.size() + this->mNewThreads.size());
+		std::unique_ptr<custom::AsioThread> netThread = std::make_unique<custom::AsioThread>();
+		{
+			asioThread = netThread.get();
+			netThread->Start(index + 1, name);
+			this->mNewThreads.emplace_back(std::move(netThread));
+		}
+		return asioThread->Context();
 	}
 
 	tcp::Socket * ThreadComponent::CreateSocket()

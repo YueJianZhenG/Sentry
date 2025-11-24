@@ -23,6 +23,8 @@ namespace custom
 #else
 		asio::post(this->mContext, [this]()
 		{
+			asio::error_code code;
+			this->mTimer.cancel(code);
 			for(IOutput * output : this->mOutputs)
 			{
 				output->Close();
@@ -71,6 +73,25 @@ namespace custom
 
 	}
 
+	void Logger::OnNewDay()
+	{
+#ifdef ONLY_MAIN_THREAD
+		for(IOutput * output : this->mOutputs)
+		{
+			output->OnNewDay(day);
+		}
+#else
+		this->mContext.post([this]
+			{
+				for(IOutput * output : this->mOutputs)
+				{
+					output->OnNewDay();
+				}
+			});
+#endif
+	}
+
+
 	bool Logger::Start()
 	{
 #ifdef ONLY_MAIN_THREAD
@@ -105,19 +126,22 @@ namespace custom
 
 	void Logger::OnTimer(const Asio::Code& code)
 	{
-		if(!code)
+		if(code != asio::error::operation_aborted)
 		{
-			this->mTick++;
-			for(IOutput * output : this->mOutputs)
+			if(!code)
 			{
-				output->OnTick(this->mTick);
+				this->mTick++;
+				for(IOutput * output : this->mOutputs)
+				{
+					output->OnTick(this->mTick);
+				}
 			}
+			this->mTimer.expires_after(std::chrono::seconds(this->mSaveTime));
+			this->mTimer.async_wait([this](auto && PH1) { OnTimer(std::forward<decltype(PH1)>(PH1)); });
 		}
-		this->mTimer.expires_after(std::chrono::seconds(this->mSaveTime));
-		this->mTimer.async_wait([this](auto && PH1) { OnTimer(std::forward<decltype(PH1)>(PH1)); });
 	}
 
-	void Logger::Push(std::unique_ptr<LogInfo> log)
+	void Logger::Push(std::unique_ptr<LogInfo>& log)
 	{
 #ifdef ONLY_MAIN_THREAD
 		for(IOutput * output : this->mOutputs)
@@ -125,7 +149,7 @@ namespace custom
 			output->Push(this->mContext, this->mName, *log);
 		}
 #else
-		this->mContext.post([this, logInfo = log.release()]
+		asio::post(this->mContext, [this, logInfo = log.release()]()
 		{
 			for(IOutput * output : this->mOutputs)
 			{
@@ -136,4 +160,24 @@ namespace custom
 #endif
 
 	}
+
+	void Logger::Push(const std::string& name, std::unique_ptr<LogInfo>& log)
+	{
+#ifdef ONLY_MAIN_THREAD
+		for(IOutput * output : this->mOutputs)
+		{
+			output->Push(this->mContext, name, *log);
+		}
+#else
+		asio::post(this->mContext, [this, name, logInfo = log.release()]()
+		{
+			for(IOutput * output : this->mOutputs)
+			{
+				output->Push(this->mContext, name, *logInfo);
+			}
+			delete logInfo;
+		});
+#endif
+	}
+
 }

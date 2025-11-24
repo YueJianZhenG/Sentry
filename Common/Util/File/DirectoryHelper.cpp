@@ -1,6 +1,7 @@
 #include "DirectoryHelper.h"
 
 #ifdef __OS_WIN__
+
 #include <codecvt>
 #include <direct.h>
 #include <io.h>
@@ -13,7 +14,9 @@
 #include <unistd.h>
 #endif
 #ifdef __OS_WIN__
+
 #include <codecvt>
+
 #define MakeDirectory(path) _mkdir(path.c_str())
 #else
 #define MakeDirectory(path) mkdir((path).c_str(), S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IXOTH)
@@ -21,19 +24,24 @@
 #define PATH_MAX_LENGHT 1024
 
 #include<regex>
+
 #include <bundled/format.h>
+#include "Util/Tools/String.h"
 
 namespace help
 {
 	bool dir::IsDir(const std::string& str)
 	{
 #ifdef __OS_WIN__
-		DWORD fileAttributes = GetFileAttributes(str.c_str());
-		if (fileAttributes == INVALID_FILE_ATTRIBUTES) {
+		std::string dir = help::text::Utf8ToGB2312(str);
+		DWORD fileAttributes = GetFileAttributes(dir.c_str());
+		if (fileAttributes == INVALID_FILE_ATTRIBUTES)
+		{
 			return false;
 		}
-		if (fileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-			   return true;
+		if (fileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+		{
+			return true;
 		}
 		return false;
 #else
@@ -56,13 +64,17 @@ namespace help
 #endif
 	}
 
-	bool dir::MakeDir(const std::string& dir)
+	bool dir::MakeDir(const std::string& str)
 	{
-		if (dir::DirectorIsExist(dir))
+		if (dir::DirectorIsExist(str))
 		{
 			return true;
 		}
-
+#ifdef __OS_WIN__
+		std::string dir = help::text::Utf8ToGB2312(str);
+#else
+		std::string dir = str;
+#endif
 		for (size_t index = 0; index < dir.size(); index++)
 		{
 			if (dir[index] == '/' || dir[index] == '\\')
@@ -82,18 +94,30 @@ namespace help
 #endif
 	}
 
-	bool dir::IsValidPath(const std::string& path)
-	{
-		const std::regex pathRegex(R"(^([a-zA-Z]:)?[\\/](?:[^\\/:\*\?"<>\|]+[\\/])*[^\\/:\*\?"<>\|]*$)");
-		return std::regex_match(path, pathRegex);
-	}
-
-	bool dir::DeleteDir(const std::string& dir)
+	bool dir::IsValidPath(const std::string& str)
 	{
 #ifdef __OS_WIN__
-		return _rmdir(dir.c_str()) != -1;
+		std::string path = help::text::Utf8ToGB2312(str);
+		const std::regex pathRegex(R"(^([a-zA-Z]:)?[\\/](?:[^\\/:\*\?"<>\|]+[\\/])*[^\\/:\*\?"<>\|]*$)");
+		return std::regex_match(path, pathRegex);
 #else
-		return rmdir(dir.c_str()) != -1;
+		const std::regex pathRegex(R"(^([a-zA-Z]:)?[\\/](?:[^\\/:\*\?"<>\|]+[\\/])*[^\\/:\*\?"<>\|]*$)");
+		return std::regex_match(str, pathRegex);
+#endif
+
+	}
+
+	bool dir::DeleteDir(const std::string& str)
+	{
+#ifdef __OS_WIN__
+		if(_rmdir(str.c_str()) == -1)
+		{
+			std::string dir = help::text::Utf8ToGB2312(str);
+			return _rmdir(dir.c_str()) != -1;
+		}
+		return true;
+#else
+		return rmdir(str.c_str()) != -1;
 #endif
 	}
 
@@ -102,23 +126,38 @@ namespace help
 		int count = 0;
 		std::vector<std::string> filePaths;
 		dir::GetFilePaths(dir, filePaths);
-		for(const std::string & path : filePaths)
+		for (const std::string& path: filePaths)
 		{
-			if(std::remove(path.c_str()) == 0)
+			if (std::remove(path.c_str()) != 0)
 			{
-				count++;
+#ifdef __OS_WIN__
+				std::string str = help::text::Utf8ToGB2312(path);
+				if(std::remove(str.c_str()) != 0)
+				{
+					continue;
+				}
+#else
+				continue;;
+#endif
+
 			}
+			count++;
 		}
 		dir::DeleteDir(dir);
 		return count;
 	}
 
-	bool dir::DirectorIsExist(const std::string& dir)
+	bool dir::DirectorIsExist(const std::string& str)
 	{
 #ifdef __OS_WIN__
-		return  _access(dir.c_str(), 0) == 0;
+		if(_access(str.c_str(), 0) != 0)
+		{
+			std::string dir = help::text::Utf8ToGB2312(str);
+			return _access(dir.c_str(), 0) == 0;
+		}
+		return true;
 #else
-		return access(dir.c_str(), F_OK) == 0;
+		return access(str.c_str(), F_OK) == 0;
 #endif
 	}
 
@@ -126,27 +165,30 @@ namespace help
 			std::vector<std::string>& directorys, std::vector<std::string>& files)
 	{
 #ifdef __OS_WIN__
-		std::string temPath = path + "/*.*";
 		WIN32_FIND_DATA findFileData;
-		HANDLE fileHandle = FindFirstFile(temPath.c_str(), &findFileData);
+		std::string tempStr = path + "/*.*";
+		HANDLE fileHandle = FindFirstFile(tempStr.c_str(), &findFileData);
 		if (fileHandle == INVALID_HANDLE_VALUE)
 		{
-			return false;
+			std::string temPath = help::text::Utf8ToGB2312(tempStr);
+			fileHandle = FindFirstFile(temPath.c_str(), &findFileData);
+			if(fileHandle == INVALID_HANDLE_VALUE)
+			{
+				return false;
+			}
 		}
 		while (true)
 		{
 			if (findFileData.cFileName[0] != '.')
 			{
-				std::string name(findFileData.cFileName);
+				std::string name = help::text::GB2312ToUtf8(findFileData.cFileName);
 				if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 				{
-					std::string newPath = fmt::format("{}/{}", path, name);
-					directorys.emplace_back(newPath);
+					directorys.emplace_back(fmt::format("{}/{}", path, name));
 				}
 				else
 				{
-					std::string newPath = fmt::format("{}/{}", path, name);
-					files.emplace_back(newPath);
+					files.emplace_back(fmt::format("{}/{}", path, name));
 				}
 			}
 			//如果是当前路径或者父目录的快捷方式，或者是普通目录，则寻找下一个目录或者文件
@@ -177,7 +219,7 @@ namespace help
 			{
 				directorys.emplace_back(path + "/" + ptr->d_name);
 			}
-			else if (ptr->d_type == 8)
+			else if (ptr->d_type == DT_REG)
 			{
 				files.emplace_back(path + "/" + ptr->d_name);
 			}
@@ -188,19 +230,24 @@ namespace help
 
 	bool dir::GetFilePaths(const std::string& path, std::vector<std::string>& paths, bool r)
 	{
-		if(path.empty())
+		if (path.empty())
 		{
 			return false;
 		}
 #ifdef __OS_WIN__
-		std::string temPath = path + "/*.*";
-
 		WIN32_FIND_DATA findFileData;
+		std::string temPath = fmt::format("{}/*.*", path);
 		HANDLE fileHandle = FindFirstFile(temPath.c_str(), &findFileData);
 		if (fileHandle == INVALID_HANDLE_VALUE)
 		{
-			return false;
+			temPath = help::text::Utf8ToGB2312(path) + "/*.*";
+			fileHandle = FindFirstFile(temPath.c_str(), &findFileData);
+			if(fileHandle == INVALID_HANDLE_VALUE)
+			{
+				return false;
+			}
 		}
+
 
 		while (true)
 		{
@@ -214,8 +261,7 @@ namespace help
 				}
 				else
 				{
-					std::string newPath = fmt::format("{}/{}", path, name);
-					paths.emplace_back(newPath);
+					paths.emplace_back(fmt::format("{}/{}", path, name));
 				}
 			}
 			//如果是当前路径或者父目录的快捷方式，或者是普通目录，则寻找下一个目录或者文件
@@ -259,37 +305,36 @@ namespace help
 #endif
 	}
 
-	bool dir::GetFilePaths(const std::string& path, const std::string & format, std::vector<std::string>& paths)
+	bool dir::GetFilePaths(const std::string& dir, const std::string& format, std::vector<std::string>& paths)
 	{
 		std::vector<std::string> allPaths;
-		if (GetFilePaths(path, allPaths))
-		{
-			for (size_t index = 0; index < allPaths.size(); index++)
-			{
-				if (allPaths[index].find(format) != std::string::npos)
-				{
-					paths.push_back(allPaths[index]);
-				}
-			}
-			return true;
-		}
-		return false;
-	}
-
-	bool dir::GetDirByPath(const std::string& path, std::string& director)
-	{
-		/*std::string pattern("^[a-zA-Z]:|([\\\\/]|[^\\s\\\\/:*?<>\"|][^\\\\/:*?<>\"|]*)+$");
-		std::regex nRegex(pattern);
-		if (!std::regex_match(path, nRegex))
+		if (!GetFilePaths(dir, allPaths))
 		{
 			return false;
-		}*/
-		size_t pos = path.find_last_of("/\\");
+		}
+		std::string fileSuffix(format);
+		for(const std::string & path : allPaths)
+		{
+			if(path.find_last_of(format) != std::string::npos)
+			{
+				std::string str = path.substr(path.size() - format.size());
+				if(help::Str::Tolower(str) == help::Str::Tolower(fileSuffix))
+				{
+					paths.emplace_back(path);
+				}
+			}
+		}
+		return true;
+	}
+
+	bool dir::GetDirByPath(const std::string& str, std::string& director)
+	{
+		size_t pos = str.find_last_of("/\\");
 		if (pos == std::string::npos)
 		{
 			return false;
 		}
-		director = path.substr(0, pos + 1);
+		director = str.substr(0, pos + 1);
 		return true;
 	}
 
@@ -306,12 +351,6 @@ namespace help
 
 	bool dir::GetDirAndFileName(const std::string& path, std::string& director, std::string& fileName)
 	{
-		/* std::string pattern("^[a-zA-Z]:|([\\\\/]|[^\\s\\\\/:*?<>\"|][^\\\\/:*?<>\"|]*)+$");
-		 std::regex nRegex(pattern);
-		 if (!std::regex_match(path, nRegex))
-		 {
-			 return false;
-		 }*/
 		size_t pos = path.find_last_of("/\\");
 		if (pos == std::string::npos)
 		{

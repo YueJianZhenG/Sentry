@@ -19,7 +19,7 @@ namespace rpc
 namespace acs
 {
 	class OuterTcpComponent final : public Component, public ITcpListen, public rpc::IOuterSender,
-									public IRpc<rpc::Message, rpc::Message>, public IServerRecord
+									public IRpc<rpc::Message, rpc::Message>, public IServerRecord, public IFrameUpdate
 	{
 	 public:
 		OuterTcpComponent();
@@ -28,6 +28,7 @@ namespace acs
 		void StartClose(int id, int code) final;
 	private:
 		bool LateAwake() final;
+		void OnFrameUpdate(int elapse) noexcept final;
 		void Broadcast(std::unique_ptr<rpc::Message> & message) noexcept final;
 		int Send(int id, std::unique_ptr<rpc::Message> & message) noexcept final;
 		inline char GetNet() const noexcept final { return rpc::net::tcp; }
@@ -39,15 +40,12 @@ namespace acs
 		bool OnListen(tcp::Socket * socket) noexcept final;
 		void OnRecord(json::w::Document & document) final;
 	private:
-		void OnPlayerLogin(long long userId, int sockId);
-		void OnPlayerLogout(long long userId, int sockId);
-	private:
 		int mWaitCount;
 		int mMaxConnectCount;
 		rpc::IOuterMessage * mOuter;
 		math::NumberPool<int> mSocketPool;
-		custom::Queue<rpc::Message *> mBroadCastMessages; //广播消息
-		std::unordered_map<int, std::shared_ptr<rpc::OuterTcpSession>> mGateClientMap;
+		std::queue<std::unique_ptr<rpc::Message>> mBroadCastMessages;
+		std::unordered_map<int, std::shared_ptr<rpc::OuterTcpSession>> mSessions;
 		//std::unordered_map<int, std::unique_ptr<rpc::InnerClient>> mForwardClientMap;
 	};
 }

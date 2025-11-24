@@ -57,14 +57,14 @@ namespace redis
 		inline int GetRpcId() const { return this->mTaskId; }
 		inline const std::string& GetCommand() const{ return this->mCommand; }
 		inline void SetCommand(const std::string& cmd) { this->mCommand = cmd;}
+		inline void SetCommand(const char * cmd, size_t size) { this->mCommand.assign(cmd, size);}
 		inline void AddParameter(const std::string& value) { this->mParameters.emplace_back(value); }
 		inline void AddParameter(const char* str, size_t size) { this->mParameters.emplace_back(str, size); }
 		inline void AddParameter(const json::w::Document & document) {
-			size_t count = 0;
-			std::unique_ptr<char> json;
-			if(document.Serialize(json, count))
+			wrap::string<true> json;
+			if(document.Serialize(json))
 			{
-				this->mParameters.emplace_back(json.get(), count);
+				this->mParameters.emplace_back(json.c_str(), json.size());
 			}
 		}
 
@@ -156,8 +156,9 @@ namespace acs
     public:
         explicit RedisTask(int id);
     public:
+		inline void OnTimeout() final;
 		inline std::unique_ptr<redis::Response> Await() noexcept;
-		inline void OnResponse(std::unique_ptr<redis::Response> response) noexcept final;
+		inline void OnResponse(std::unique_ptr<redis::Response>& response) noexcept final;
     private:
 		std::unique_ptr<redis::Response> mMessage;
     };
@@ -168,9 +169,19 @@ namespace acs
 		return std::move(this->mMessage);
 	}
 
-	inline void RedisTask::OnResponse(std::unique_ptr<redis::Response> response) noexcept
+	inline void RedisTask::OnResponse(std::unique_ptr<redis::Response>& response) noexcept
 	{
 		this->mMessage = std::move(response);
+		this->ResumeTask();
+	}
+
+	void RedisTask::OnTimeout()
+	{
+		this->mMessage = std::make_unique<redis::Response>();
+		{
+			this->mMessage->element.message = "time out";
+			this->mMessage->element.type = redis::type::Error;
+		}
 		this->ResumeTask();
 	}
 
@@ -181,7 +192,8 @@ namespace acs
         ~LuaRedisTask() final;
     public:
         int Await() noexcept;
-        void OnResponse(std::unique_ptr<redis::Response> response) noexcept final;
+		void OnTimeout() final;
+        void OnResponse(std::unique_ptr<redis::Response>& response) noexcept final;
     private:
         int mRef;
         lua_State * mLua;

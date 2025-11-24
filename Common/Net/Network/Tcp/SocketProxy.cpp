@@ -40,11 +40,10 @@ namespace tcp
 		return true;
     }
 
-	bool Socket::CanRecvCount(size_t& count)
+	size_t Socket::CanRecvCount()
 	{
 		Asio::Code code;
-		count = this->mSocket->available(code);
-		return code.value() == Asio::OK;
+		return this->mSocket->available(code);
 	}
 
 	void Socket::MakeNewSocket()
@@ -65,7 +64,7 @@ namespace tcp
 	{
 		std::string ip;
 		unsigned short port = 0;
-		if(help::Str::SplitAddr(address, ip, port))
+		if(!help::Str::SplitAddr(address, ip, port))
 		{
 			return false;
 		}

@@ -36,7 +36,7 @@ namespace acs
 		inline void SetResultPtr(T * result);
 
 		inline void SetError(const char * error);
-		void SetResult(int code, std::unique_ptr<rpc::Message> response);
+		void SetResult(int code, std::unique_ptr<rpc::Message>& response);
 
 		template<typename... Args>
 		inline void SetResults(Args &&... args)

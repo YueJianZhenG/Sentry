@@ -21,7 +21,7 @@ namespace acs
 		bool OnInit() final;
 	private:
 		class PlayerComponent * mPlayerMgr;
-		std::vector<ILogin *> mLoginComponents;
+		class EventProxyComponent * mEventProxy;
 	};
 }
 

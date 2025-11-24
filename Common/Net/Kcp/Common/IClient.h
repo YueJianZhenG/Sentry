@@ -11,12 +11,15 @@
 #include "Entity/Component/IComponent.h"
 
 using asio_udp = asio::ip::udp;
-constexpr int KCP_TIME_OUT = 20; //xx秒
 
-constexpr int KCP_UPDATE_INTERVAL = 100;
 
 namespace kcp
 {
+	constexpr int TIME_OUT = 20; //xx秒
+	constexpr int TIME_OUT_MS = TIME_OUT * 1000; //xx毫秒
+
+	constexpr int UPDATE_INTERVAL = 100;
+
 	constexpr int BUFFER_COUNT = 1200;
 
 	constexpr int RESEND = 2; //快速重传的触发条件。此值设为 2 表示接收到 2 个重复 ACK 时立即重传。
@@ -29,7 +32,7 @@ namespace kcp
 	{
 	public:
 		virtual void StartReceive() { };
-		virtual void Update(long long t) = 0;
+		virtual bool Update(long long t) = 0;
 		virtual void Send(const char * buf, int len) = 0;
 		virtual void Send(std::unique_ptr<rpc::Message> & message) { };
 	};

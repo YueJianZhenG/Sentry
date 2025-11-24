@@ -161,13 +161,13 @@ namespace acs
     {
         if(this->mRef == 0)
         {
-            luaL_error(this->mLua, "not lua coroutine context yield failure");
+            LOG_ERROR("not lua coroutine context yield failure");
             return 0;
         }
         return lua_yield(this->mLua, 0);
     }
 
-    void LuaRedisTask::OnResponse(std::unique_ptr<redis::Response> response) noexcept
+    void LuaRedisTask::OnResponse(std::unique_ptr<redis::Response>& response) noexcept
 	{
 		int count = 0;
 		if (response != nullptr)
@@ -175,5 +175,16 @@ namespace acs
 			count = response->WriteToLua(this->mLua);
 		}
 		Lua::Coroutine::Resume(this->mLua, count);
+	}
+
+	void LuaRedisTask::OnTimeout()
+	{
+		std::unique_ptr<redis::Response> response = std::make_unique<redis::Response>();
+		{
+			response->element.message = "time out";
+			response->element.type = redis::type::Error;
+		}
+		response->WriteToLua(this->mLua);
+		Lua::Coroutine::Resume(this->mLua, 1);
 	}
 }

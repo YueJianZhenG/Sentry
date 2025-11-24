@@ -6,6 +6,7 @@
 #include"Util/File/DirectoryHelper.h"
 #include"Lua/Engine/UserDataParameter.h"
 #include "Util/Tools/Math.h"
+#include "Util/Tools/String.h"
 
 namespace http
 {
@@ -55,6 +56,27 @@ namespace http
 //			{
 //				return tcp::ReadDone;
 //			}
+
+			this->mContSize = 0;
+			if(!this->mHead.GetContentLength(this->mContSize))
+			{
+				std::string chunked("chunked");
+				std::string encodeding(http::Header::TransferEncoding);
+				help::Str::Tolower(encodeding);
+				if(!this->mHead.IsEqual(encodeding, chunked))
+				{
+					return tcp::read::done;
+				}
+				if(this->mBody == nullptr)
+				{
+					this->mBody = std::make_unique<http::ChunkedContent>();
+				}
+			}
+			else if(this->mContSize == 0)
+			{
+				return tcp::read::done;
+			}
+
 			if(this->mBody == nullptr)
 			{
 				std::string content_type;
@@ -72,48 +94,10 @@ namespace http
 					this->mBody = std::make_unique<http::TextContent>();
 				}
 			}
-			this->mContSize = 0;
-			if(!this->mHead.GetContentLength(this->mContSize))
-			{
-				if(this->mHead.Has(http::Header::TransferEncoding))
-				{
-					return tcp::read::line;
-				}
-				return tcp::read::done;
-			}
+
 		}
 		if (this->mParseState == tcp::Decode::MessageBody)
 		{
-			if(this->mHead.Has(http::Header::TransferEncoding))
-			{
-				if(this->mContSize == 0)
-				{
-					std::string line;
-					if (!std::getline(buffer, line))
-					{
-						return tcp::read::decode_error;
-					}
-					line.pop_back();
-					if(line.empty())
-					{
-						return tcp::read::done;
-					}
-					this->mContSize = std::stoi(line, nullptr, 16);
-					if(this->mContSize == 0)
-					{
-						return tcp::read::done;
-					}
-					if (this->mContSize > 0)
-					{
-						return this->mContSize;
-					}
-				}
-				this->mBody->OnRecvMessage(buffer, size);
-				{
-					this->mContSize = 0;
-					return tcp::read::line;
-				}
-			}
 			int flag = this->mBody->OnRecvMessage(buffer, size);
 			if(this->mContSize > 0 && this->mBody->ContentLength() >= this->mContSize)
 			{
@@ -143,7 +127,7 @@ namespace http
 		this->mBody = std::move(custom);
 	}
 
-	void Response::Json(json::w::Document& document)
+	void Response::SetContent(json::w::Document& document)
 	{
 		std::unique_ptr<http::JsonContent> jsonData = std::make_unique<http::JsonContent>();
 		{
@@ -245,7 +229,6 @@ namespace http
 			lua_rawset(lua, -3);
 		}
 		{
-			std::string value;
 			lua_pushstring(lua, "head");
 			tcp::IHeader::WriteLua(lua, this->mHead);
 			lua_rawset(lua, -3);

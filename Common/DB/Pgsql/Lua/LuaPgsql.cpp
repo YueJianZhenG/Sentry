@@ -13,24 +13,17 @@ namespace lua
 {
 	int lpgsql::Run(lua_State* L)
 	{
-		static PgsqlDBComponent* pgsql = nullptr;
-		if(pgsql == nullptr)
-		{
-			pgsql = App::Get<PgsqlDBComponent>();
-			if(pgsql == nullptr)
-			{
-				luaL_error(L, "not find [MysqlDBComponent]");
-				return 0;
-			}
-		}
-		int rpcId = 0;
 		size_t size = 0;
-		lua_pushthread(L);
 		const char * sql = luaL_checklstring(L, 1, &size);
+
+		static PgsqlDBComponent* pgsql = App::Get<PgsqlDBComponent>();
+
+		int rpcId = 0;
 		std::unique_ptr<pgsql::Request> request = std::make_unique<pgsql::Request>(sql, size);
 		{
 			pgsql->Send(request, rpcId);
 		}
+		lua_pushthread(L);
 		return pgsql->AddTask(new LuaPgsqlTask(L, rpcId))->Await();
 	}
 }

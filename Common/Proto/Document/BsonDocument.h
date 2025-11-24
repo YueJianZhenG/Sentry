@@ -233,6 +233,7 @@ namespace bson
 		public:
 			explicit Document() = default;
 			explicit Document(_bson::bsonobj & object) : mObject(object) { }
+			explicit Document(const char * bson) { this->mObject.init(bson); }
 			explicit Document(_bson::bsonelement & element) : mObject(element.object()) { }
 		public:
 			inline bool IsOk() const {

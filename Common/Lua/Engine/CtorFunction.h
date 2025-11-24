@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LuaInclude.h"
+#include "Lua/Engine/ClassNameProxy.h"
 
 namespace Lua
 {
@@ -11,8 +12,8 @@ namespace Lua
 		{
 			void* userdata = lua_newuserdata(luaEnv, sizeof(PtrProxy<T>));
 			new(userdata) PtrProxy<T>(new T(std::forward<Args>(args)...), true);
-			const char* name = ClassNameProxy::GetLuaClassName<T>();
-			lua_getglobal(luaEnv, name);
+			const std::string & name = lua::ClassFactory<T>::name;
+			lua_getglobal(luaEnv, name.c_str());
 			lua_setmetatable(luaEnv, -2);
 			return 1;
 		}
@@ -24,8 +25,8 @@ namespace Lua
 		{
 			void* userdata = lua_newuserdata(luaEnv, sizeof(PtrProxy<T>));
 			new(userdata) PtrProxy<T>(new T(), true);
-			const char* name = ClassNameProxy::GetLuaClassName<T>();
-			lua_getglobal(luaEnv, name);
+			const std::string & name = lua::ClassFactory<T>::name;
+			lua_getglobal(luaEnv, name.c_str());
 			lua_setmetatable(luaEnv, -2);
 			return 1;
 		}

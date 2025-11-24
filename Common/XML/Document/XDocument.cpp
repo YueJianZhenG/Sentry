@@ -60,6 +60,21 @@ namespace xml
 		return true;
 	}
 
+	bool XElement::Next(const char* key, std::unique_ptr<xml::XElement>& value) const
+	{
+		if(this->mElement == nullptr)
+		{
+			return false;
+		}
+		tinyxml2::XMLElement * element = this->mElement->NextSiblingElement(key);
+		if(element == nullptr)
+		{
+			return false;
+		}
+		value = std::make_unique<XElement>(element, this->mDocument);
+		return true;
+	}
+
 	bool XElement::Get(const char* key, std::unique_ptr<XElement>& value) const
 	{
 		if(this->mElement == nullptr)

@@ -8,7 +8,11 @@
 #include "miniz.h"
 #include <codecvt>
 #include "XML/Src/tinyxml2.h"
+#include "Util/Tools/String.h"
 
+#ifdef __ENABLE_MI_MALLOC__
+#include "mimalloc.h"
+#endif
 namespace lxlsx
 {
     inline bool is_date_ime(uint32_t id)
@@ -21,6 +25,28 @@ namespace lxlsx
     {
         return id > 165;
     }
+
+#ifdef __ENABLE_MI_MALLOC__
+	inline void* mi_mz_alloc(void* opaque, size_t items, size_t size)
+	{
+		(void)opaque;
+		return mi_calloc(items, size);
+	}
+
+// 释放函数
+	inline void mi_mz_free(void* opaque, void* address)
+	{
+		(void)opaque;
+		mi_free(address);
+	}
+
+// 重新分配函数
+	inline void* mi_mz_realloc(void* opaque, void* address, size_t items, size_t size)
+	{
+		(void)opaque;
+		return mi_realloc(address, items * size);
+	}
+#endif
 
     class Cell
     {
@@ -78,6 +104,17 @@ namespace lxlsx
             return cells[index];
         }
 
+        inline std::string get_cell_str(uint32_t row, uint32_t col)
+        {
+            std::string result;
+            Cell * cell = this->get_cell(row, col);
+            if(cell != nullptr)
+            {
+                result = cell->value;
+            }
+            return result;
+        }
+
         void add_cell(uint32_t row, uint32_t col, Cell * co)
         {
             if (row < first_row || row > last_row || col < first_col || col > last_col)
@@ -111,21 +148,23 @@ namespace lxlsx
         }
 
 
-        bool Open(const char* filename, std::string& error)
+        inline bool Open(const std::string & filename, std::string& error)
         {
             memset(&archive, 0, sizeof(archive));
-            if (!mz_zip_reader_init_file(&archive, filename, 0))
+#ifdef __ENABLE_MI_MALLOC__
+			archive.m_pAlloc = mi_mz_alloc;
+			archive.m_pFree = mi_mz_free;
+			archive.m_pRealloc = mi_mz_realloc;
+#endif
+            if (!mz_zip_reader_init_file(&archive, filename.c_str(), 0))
             {
 #ifdef __OS_WIN__
-                FILE* pFile = nullptr;
-                std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-                std::wstring newPath = converter.from_bytes(filename);
-                _wfopen_s(&pFile, newPath.c_str(), L"rb");
-                if (!mz_zip_reader_init_cfile(&archive, pFile, 0, 0))
-                {
-                    error.assign(mz_zip_get_error_string(archive.m_last_error));
-                    return false;
-                }
+				std::string newPath = help::text::Utf8ToGB2312(filename);
+				if (!mz_zip_reader_init_file(&archive, newPath.c_str(), 0))
+				{
+					error.assign(mz_zip_get_error_string(archive.m_last_error));
+					return false;
+				}
 #else
 				return false;
 #endif
@@ -142,7 +181,7 @@ namespace lxlsx
             return true;
         }
 
-        Sheet* GetSheet(const char* name)
+        inline Sheet* GetSheet(const char* name)
         {
             for (auto sh : excel_sheets)
             {
@@ -157,14 +196,14 @@ namespace lxlsx
         }
 
     private:
-        bool open_xml(const char* filename, tinyxml2::XMLDocument& doc)
+        inline bool open_xml(const char* filename, tinyxml2::XMLDocument& doc)
         {
             uint32_t index = mz_zip_reader_locate_file(&archive, filename, nullptr, 0);
             size_t size = 0;
             auto data = (const char*)mz_zip_reader_extract_to_heap(&archive, index, &size, 0);
             if (data && doc.Parse(data, size) == tinyxml2::XML_SUCCESS)
             {
-                delete[] data;
+                delete []data;
                 return true;
             }
             return false;
@@ -208,7 +247,7 @@ namespace lxlsx
             }
         }
 
-        void read_styles(const char* filename)
+        inline void read_styles(const char* filename)
         {
             tinyxml2::XMLDocument doc;
             if (!open_xml(filename, doc)) return;
@@ -249,7 +288,7 @@ namespace lxlsx
             }
         }
 
-        void read_work_book(const char* filename)
+        inline void read_work_book(const char* filename)
         {
             tinyxml2::XMLDocument doc;
             if (!open_xml(filename, doc)) return;
@@ -270,7 +309,7 @@ namespace lxlsx
             }
         }
 
-        void read_shared_strings(const char* filename)
+        inline void read_shared_strings(const char* filename)
         {
             tinyxml2::XMLDocument doc;
             if (!open_xml(filename, doc)) return;
@@ -300,7 +339,7 @@ namespace lxlsx
             }
         }
 
-        void read_work_book_rels(const char* filename)
+        inline void read_work_book_rels(const char* filename)
         {
             tinyxml2::XMLDocument doc;
             if (!open_xml(filename, doc)) return;
@@ -321,7 +360,7 @@ namespace lxlsx
             }
         }
 
-        void read_cell(Cell* c, const char* t, const char* s, tinyxml2::XMLElement* v)
+        inline void read_cell(Cell* c, const char* t, const char* s, tinyxml2::XMLElement* v)
         {
             if (!v || !v->GetText())
             {
@@ -374,7 +413,7 @@ namespace lxlsx
             }
         }
 
-        void parse_cell(const std::string& value, uint32_t& row, uint32_t& col)
+        inline void parse_cell(const std::string& value, uint32_t& row, uint32_t& col)
         {
             col = 0;
             uint32_t arr[10];
@@ -392,7 +431,7 @@ namespace lxlsx
             row = atol(value.c_str() + index);
         }
 
-        void merge_cells(Sheet* sh, const std::string& value)
+        inline void merge_cells(Sheet* sh, const std::string& value)
         {
             size_t index = value.find_first_of(':');
             if (index != std::string::npos)
@@ -417,7 +456,7 @@ namespace lxlsx
             }
         }
 
-        void parse_range(tinyxml2::XMLElement* dim, tinyxml2::XMLElement* shdata, Sheet* sh)
+        inline void parse_range(tinyxml2::XMLElement* dim, tinyxml2::XMLElement* shdata, Sheet* sh)
         {
             if (dim)
             {

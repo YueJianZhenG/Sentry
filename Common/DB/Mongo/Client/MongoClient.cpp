@@ -2,7 +2,7 @@
 // Created by mac on 2022/5/18.
 //
 
-
+#include <regex>
 #include "MongoClient.h"
 #include "XCode/XCode.h"
 #include "Util/Crypt/sha1.h"
@@ -32,7 +32,11 @@ namespace mongo
 		{
 			char temp[10] = { 0 };
 			unsigned char cc = iter->str()[0];
+#ifndef _MSC_VER
 			result.append(temp, sprintf(temp, "%02x", (int)cc));
+#else
+			result.append(temp, sprintf_s(temp, "%02x", (int)cc));
+#endif
 		}
 		return result;
 	}
@@ -53,7 +57,7 @@ namespace mongo
 
 #ifdef __ENABLE_OPEN_SSL__
 
-	inline std::string SaltPasswordBySha256(const std::string& pwd, std::string salt, int iterations)
+	inline std::string SaltPasswordBySha256(const std::string& pwd, const std::string& salt, int iterations)
 	{
 		std::string salted(SHA256_DIGEST_LENGTH, '\0');
 		PKCS5_PBKDF2_HMAC(pwd.c_str(), pwd.size(),
@@ -102,7 +106,7 @@ namespace mongo
 	}
 
 	Client::Client(int id, Component* component, mongo::Config config, Asio::Context& io)
-			: tcp::Client(0), mClientId(id), mComponent(component), mConfig(std::move(config)), mMainContext(io)
+			: tcp::Client(1024 * 1024), mClientId(id), mComponent(component), mConfig(std::move(config)), mMainContext(io)
 	{
 		this->mRequest = nullptr;
 		this->mResponse = nullptr;
@@ -123,6 +127,7 @@ namespace mongo
 	void Client::OnSendMessage(const Asio::Code& code)
 	{
 		this->Connect();
+		LOG_ERROR("client:{} send => {}", this->mClientId, code.message())
 	}
 
 	bool Client::AuthBySha1(const std::string& user, const std::string& db, const std::string& pwd)
@@ -345,6 +350,7 @@ namespace mongo
 	void Client::OnReadError(const Asio::Code& code)
 	{
 		this->Connect(3);
+		LOG_ERROR("client:{} read => {}", this->mClientId, code.message())
 	}
 
 	void Client::OnReceiveMessage(std::istream& is, size_t size, const Asio::Code&)
@@ -501,6 +507,7 @@ namespace mongo
 	{
 		if (code.value() != Asio::OK)
 		{
+			LOG_ERROR("client:{} connect =>{}", this->mClientId, code.message())
 			if (count < this->mConfig.conn_count)
 			{
 				this->Connect(5);
@@ -509,6 +516,7 @@ namespace mongo
 		}
 		else if (this->Auth(false))
 		{
+			LOG_DEBUG("client:{} connect ok", this->mClientId)
 			if (this->mRequest != nullptr)
 			{
 				this->Write(*this->mRequest);

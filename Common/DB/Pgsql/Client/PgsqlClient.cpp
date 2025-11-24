@@ -26,8 +26,8 @@ namespace sha256
 
 		// 计算 SaltedPassword
 		unsigned char salted_password[SHA256_DIGEST_LENGTH];
-		PKCS5_PBKDF2_HMAC(password.c_str(), password.size(),
-				reinterpret_cast<const unsigned char*>(salt.c_str()), salt.size(),
+		PKCS5_PBKDF2_HMAC(password.c_str(), (int)password.size(),
+				reinterpret_cast<const unsigned char*>(salt.c_str()), (int)salt.size(),
 				iterations, EVP_sha256(), SHA256_DIGEST_LENGTH, salted_password);
 
 		// 计算 ClientKey
@@ -479,12 +479,14 @@ namespace pgsql
 		{
 			this->Connect(5);
 		}
+		LOG_ERROR("client:{} read => {}", this->mClientId, code.message())
 	}
 
 	void Client::OnConnect(const Asio::Code& code, int count)
 	{
 		if(code.value() != Asio::OK)
 		{
+			LOG_ERROR("client:{} connect => {}", this->mClientId, code.message())
 			if(count <= this->mConfig.conn_count)
 			{
 				this->Connect(5);
@@ -493,6 +495,7 @@ namespace pgsql
 		}
 		else if(this->Auth(false) == XCode::Ok)
 		{
+			LOG_DEBUG("client:{} connect ok", this->mClientId);
 			this->OnCompileSql();
 			if(this->mRequest != nullptr)
 			{

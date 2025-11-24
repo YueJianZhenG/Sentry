@@ -1,10 +1,14 @@
 {
     "LoginSystem.Login": {
         "async":true,
-        "request": "s2s.login.request"
+        "proto" : "pb",
+        "request": "s2s.login.request",
+        "desc" : "客户端登录验证"
     },
     "LoginSystem.Logout": {
         "async":true,
-        "request": "s2s.logout.request"
+        "proto" : "pb",
+        "request": "s2s.logout.request",
+        "desc" : "客户端登出验证"
     }
 }

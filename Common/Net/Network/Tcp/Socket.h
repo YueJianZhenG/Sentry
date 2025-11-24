@@ -39,15 +39,15 @@ namespace tcp
 	 public:
 		bool Init();
 		void MakeNewSocket();
-		bool CanRecvCount(size_t & count);
+		size_t CanRecvCount();
 		bool Init(const std::string & address);
 		bool Init(const std::string & ip, unsigned short port);
 		inline Asio::Socket & Get() { return *this->mSocket; }
 	public:
 		bool SetOption(OptionType type, bool val);
 		inline Asio::Context & GetContext() { return this->mContext; }
-		inline bool IsOpenSsl() const { return this->mSslSocket != nullptr; }
 #ifdef __ENABLE_OPEN_SSL__
+		inline bool IsOpenSsl() const { return this->mSslSocket != nullptr; }
 		inline Asio::ssl::Socket & SslSocket() { return *this->mSslSocket; }
 #endif
     public:

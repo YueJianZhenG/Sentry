@@ -22,9 +22,11 @@ namespace acs
 		BIND_RPC_METHOD(MysqlWriteProxy::Delete)
 		BIND_RPC_METHOD(MysqlWriteProxy::Commit)
 		BIND_RPC_METHOD(MysqlWriteProxy::Replace)
+		BIND_RPC_METHOD(MysqlWriteProxy::Execute)
 		BIND_RPC_METHOD(MysqlWriteProxy::SetIndex)
 		BIND_RPC_METHOD(MysqlWriteProxy::InsertOne)
 		BIND_RPC_METHOD(MysqlWriteProxy::InsertBatch)
+		BIND_RPC_METHOD(MysqlWriteProxy::Deduction)
 		LOG_CHECK_RET_FALSE(this->mMysql = this->GetComponent<MysqlDBComponent>())
 		return true;
 	}
@@ -121,7 +123,7 @@ namespace acs
 		std::string tab;
 		json::r::Value documents;
 		LOG_ERROR_CHECK_ARGS(request.Get("tab", tab))
-		LOG_ERROR_CHECK_ARGS(request.Get("documents", documents))
+		LOG_ERROR_CHECK_ARGS(request.Get("documents", documents) && documents.IsArray())
 		std::unique_ptr<mysql::Request> mysqlRequest = std::make_unique<mysql::Request>();
 		{
 			json::r::Value document;
@@ -156,7 +158,7 @@ namespace acs
 		LOG_ERROR_CHECK_ARGS(request.Get("tab", tab))
 		LOG_ERROR_CHECK_ARGS(request.Get("document", document))
 
-		this->mFactory.GetTable(tab).Insert(document);
+		this->mFactory.GetTable(tab).Replace(document);
 		const std::string sql = this->mFactory.ToString();
 		std::unique_ptr<mysql::Response> mysqlResponse = this->mMysql->Run(sql);
 		if(mysqlResponse == nullptr)
@@ -250,6 +252,67 @@ namespace acs
 		}
 		return XCode::Ok;
 	}
+
+	int MysqlWriteProxy::Execute(const json::r::Document& request, rpc::Message& response)
+	{
+		std::string stmt;
+		json::r::Value jsonArgs;
+		LOG_ERROR_CHECK_ARGS(request.Get("stmt", stmt));
+		LOG_ERROR_CHECK_ARGS(request.Get("args", jsonArgs) && jsonArgs.IsArray())
+		std::string setSql = this->mFactory.Set(jsonArgs).ToString();
+		std::string exeSql = this->mFactory.Execute(stmt, jsonArgs).ToString();
+		std::unique_ptr<mysql::Request> mysqlRequest = std::make_unique<mysql::Request>();
+		{
+			mysqlRequest->AddBatch(setSql);
+			mysqlRequest->AddBatch(exeSql);
+		}
+		std::unique_ptr<mysql::Response> mysqlResponse = this->mMysql->Run(mysqlRequest);
+		LOG_ERROR_RETURN_CODE(mysqlResponse != nullptr, XCode::Failure);
+
+		if(!mysqlResponse->IsOk())
+		{
+			response.SetError(mysqlResponse->GetBuffer());
+			return XCode::Failure;
+		}
+		json::w::Document jsonArray(true);
+		for(const std::string & result : mysqlResponse->contents)
+		{
+			jsonArray.AddObject(result.c_str(), result.size());
+		}
+		response.SetContent(jsonArray);
+		return XCode::Ok;
+	}
+
+	int MysqlWriteProxy::Deduction(const json::r::Document& request, json::w::Document& response)
+	{
+		int value = 0;
+		json::r::Value filter;
+		std::string tab, field;
+		LOG_ERROR_CHECK_ARGS(request.Get("tab", tab))
+		LOG_ERROR_CHECK_ARGS(request.Get("field", field))
+		LOG_ERROR_CHECK_ARGS(request.Get("value", value))
+		LOG_ERROR_CHECK_ARGS(request.Get("filter", filter))
+		if(value <= 0)
+		{
+			return XCode::CallArgsError;
+		}
+		std::string update = fmt::format(" UPDATE {} SET {}={}-{}", tab, field, field, value);
+		this->mFactory.GetTable(tab).Append(update).Filter(filter).Append(fmt::format(" AND {} >={}", field, value)).Limit(1);
+		const std::string sql = this->mFactory.ToString();
+
+		std::unique_ptr<mysql::Response> mysqlResponse = this->mMysql->Run(sql);
+		LOG_ERROR_RETURN_CODE(mysqlResponse != nullptr, XCode::Failure);
+
+		if(!mysqlResponse->IsOk())
+		{
+			response.Add("error", mysqlResponse->GetBuffer());
+			return XCode::Failure;
+		}
+		response.Add("count", mysqlResponse->ok.mAffectedRows);
+		return XCode::Ok;
+	}
+
+
 
 	int MysqlWriteProxy::Commit(const json::r::Document& request, json::w::Document& response)
 	{

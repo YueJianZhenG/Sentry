@@ -1,16 +1,19 @@
 //
 // Created by yjz on 2022/11/22.
 //
-#include"LuaModule.h"
-#include"Lua/Engine/Function.h"
-#include"Log/Common/CommonLogDef.h"
+#include "LuaModule.h"
+#include "Event/Base/IEvent.h"
+#include "Lua/Engine/Function.h"
 #include "Util/Tools/TimeHelper.h"
+#include "Log/Common/CommonLogDef.h"
+
 
 namespace Lua
 {
 	LuaModule::LuaModule(lua_State* lua, std::string name, int ref)
 			: mLua(lua), mName(std::move(name)), mRef(ref)
 	{
+		this->mTimerID.fill(0);
 		this->InitModule();
 	}
 
@@ -22,7 +25,7 @@ namespace Lua
 		}
 	}
 
-	void LuaModule::OnModuleHotfix()
+	void LuaModule::OnHotfix()
 	{
 		this->mCaches.clear();
 		lua_pushnil(this->mLua);
@@ -32,17 +35,19 @@ namespace Lua
 			{
 				size_t size = 0;
 				const char * func = lua_tolstring(this->mLua, -2, &size);
-				this->mCaches.emplace_back(func, size);
+				{
+					this->mCaches.emplace_back(func, size);
+				}
 			}
 			lua_pop(this->mLua, 1);
 		}
+		this->InitEvent();
 	}
 
 	void LuaModule::InitModule()
 	{
 		this->SetMember("__name", this->mName);
 		this->SetMember("__time", help::Time::NowSec());
-
 		lua_rawgeti(this->mLua, LUA_REGISTRYINDEX, this->mRef);
 
 		this->mCaches.clear();
@@ -57,23 +62,49 @@ namespace Lua
 			}
 			lua_pop(this->mLua, 1);
 		}
+		this->InitEvent();
 	}
 
-	void LuaModule::SetMember(const char* key, long long value)
+	void LuaModule::InitEvent()
 	{
-		lua_rawgeti(this->mLua, LUA_REGISTRYINDEX, this->mRef);
+		if(this->HasFunction("OnUpdate"))
 		{
-			lua_pushinteger(this->mLua, value);
-			lua_setfield(this->mLua, -2, key);
+			long long & timerId = this->mTimerID[0];
+			help::OnOneSecondEvent::Remove(timerId);
+			timerId = help::OnOneSecondEvent::Add([this](int tick)
+			{
+				this->Call("OnUpdate", tick);
+			});
 		}
-	}
 
-	void LuaModule::SetMember(const char* key, const std::string& value)
-	{
-		lua_rawgeti(this->mLua, LUA_REGISTRYINDEX, this->mRef);
+		if(this->HasFunction("OnNewDay"))
 		{
-			lua_pushlstring(this->mLua, value.c_str(), value.size());
-			lua_setfield(this->mLua, -2, key);
+			long long & timerId = this->mTimerID[1];
+			help::OnOneSecondEvent::Remove(timerId);
+			timerId = help::OnNewDayEvent::Add([this](int day, int week)
+			{
+				this->Call("OnNewDay", day, week);
+			});
+		}
+
+		if(this->HasFunction("OnNewHour"))
+		{
+			long long & timerId = this->mTimerID[2];
+			help::OnOneSecondEvent::Remove(timerId);
+			timerId = help::OnNewHourEvent::Add([this](int day, int hour)
+			{
+				this->Call("OnNewHour", day, hour);
+			});
+		}
+
+		if(this->HasFunction("OnNewMinute"))
+		{
+			long long & timerId = this->mTimerID[3];
+			help::OnOneSecondEvent::Remove(timerId);
+			timerId = help::OnNewMinuteEvent::Add([this](int hour, int minute)
+			{
+				this->Call("OnNewMinute", hour, minute);
+			});
 		}
 	}
 
@@ -88,6 +119,10 @@ namespace Lua
 
 	bool LuaModule::GetFunction(const std::string& name)
 	{
+		if(!this->HasFunction(name))
+		{
+			return false;
+		}
 		lua_settop(this->mLua, 0);
 		lua_rawgeti(this->mLua, LUA_REGISTRYINDEX, this->mRef);
 		if (!lua_istable(this->mLua, -1))
@@ -96,45 +131,53 @@ namespace Lua
 		}
 		lua_getfield(this->mLua, -1, name.c_str());
 
-		if (lua_isfunction(this->mLua, -1))
+		if (!lua_isfunction(this->mLua, -1))
 		{
-			lua_pushvalue(this->mLua, -2);
-			return true;
+			return false;
 		}
-		return false;
+		lua_pushvalue(this->mLua, -2);
+		return true;
 	}
 
 	bool LuaModule::GetMetaFunction(const std::string& name) noexcept
 	{
-		lua_settop(this->mLua, 0);
 		lua_rawgeti(this->mLua, LUA_REGISTRYINDEX, this->mRef);
-		luaL_getmetafield(this->mLua, -1, name.c_str());
-		if (lua_isfunction(this->mLua, -1))
+		if(!lua_istable(this->mLua, -1))
 		{
-			lua_pushvalue(this->mLua, -2);
-			return true;
+			return false;
 		}
-		return false;
+		luaL_getmetafield(this->mLua, -1, name.c_str());
+		if (!lua_isfunction(this->mLua, -1))
+		{
+			return false;
+		}
+		lua_pushvalue(this->mLua, -2);
+		return true;
 	}
 
 	void LuaModule::SplitError(std::string& error)
 	{
-		const char * str = lua_tostring(this->mLua, -1);
-		if(str == nullptr)
+		size_t count = 0;
+		const char * str = luaL_tolstring(this->mLua, -1, &count);
+		do
 		{
-			return;
+			if(str == nullptr)
+			{
+				break;
+			}
+			const char * errorInfo = strrchr(str, '/');
+			if(errorInfo == nullptr)
+			{
+				errorInfo = strrchr(str, '\\');
+			}
+			if(errorInfo != nullptr)
+			{
+				error.assign(errorInfo);
+				break;
+			}
+			error.assign(str, count);
 		}
-		const char * errorInfo = strrchr(str, '/');
-		if(errorInfo == nullptr)
-		{
-			errorInfo = strrchr(str, '\\');
-		}
-		if(errorInfo != nullptr)
-		{
-			error.assign(errorInfo);
-			return;
-		}
-		error.assign(str);
+		while(false);
 		lua_pop(this->mLua, 1);
 	}
 
@@ -147,7 +190,7 @@ namespace Lua
 			logInfo->Level = custom::LogLevel::Error;
 			logInfo->Content = fmt::format("[{}.{}] {}", this->mName, func, error);
 		}
-		Debug::Log(std::move(logInfo));
+		Debug::Log(logInfo);
 	}
 
 }

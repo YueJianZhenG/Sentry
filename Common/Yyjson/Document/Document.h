@@ -8,9 +8,11 @@
 #include <list>
 #include <string>
 #include <memory>
+#include <vector>
+
 #include <functional>
 #include <unordered_map>
-#include <vector>
+#include "Core/Wrap/Wrap.h"
 #include "Yyjson/Src/yyjson.h"
 
 namespace json
@@ -122,6 +124,7 @@ namespace json
 				return yyjson_mut_obj_add(this->mValue, key, val);
 			}
 
+			bool Add(const char* k, char v);
 			bool Add(const char* k, bool v);
 			bool Add(const char* k, const char * v);
 			bool Add(const char* k, yyjson_val* v);
@@ -189,7 +192,7 @@ namespace json
 			std::string JsonString(bool pretty = false) const;
 			bool Deserialization(const char * json, size_t size);
 			bool Serialize(std::string * json, bool pretty = false, yyjson_write_flag = 0) const noexcept;
-			bool Serialize(std::unique_ptr<char> & json, size_t & size, bool pretty = false, yyjson_write_flag = 0) const noexcept;
+			bool Serialize(wrap::string<true> & json, bool pretty = false, yyjson_write_flag = 0) const noexcept;
 		private:
 		};
 	}
@@ -246,7 +249,7 @@ namespace json
 			std::vector<const char *> GetAllKey() const;
 			size_t GetKeys(std::vector<const char*>& key) const;
 			inline yyjson_val* GetValue() { return this->mValue; }
-			bool ToCString(std::unique_ptr<char> & json, size_t & size);
+			bool ToCString(std::unique_ptr<char> & json, size_t & size) const;
 		public:
 			bool Get(const char* k, bool& v) const;
 			bool Get(const char* k, std::string& v) const;
@@ -399,10 +402,11 @@ namespace json
 
 		public:
 			void SetDoc(yyjson_doc* doc);
+			yyjson_doc* GetDoc() { return this->mDoc; }
 			bool FromFile(const std::string& path) noexcept;
+			// 启用YYJSON_READ_INSITU之后 会改变原始字符串
 			bool Decode(const std::string& json, yyjson_read_flag flag = 0) noexcept;
 			bool Decode(const char* str, size_t size, yyjson_read_flag flag = 0) noexcept;
-			yyjson_doc* GetDoc() { return this->mDoc; }
 			bool DecodeFile(const std::string& path);
 		public:
 			inline const std::string& GetError()

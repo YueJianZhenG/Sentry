@@ -56,7 +56,16 @@ namespace acs
 		lua_rawset(L, -3);
 	}
 
-	void LuaMysqlTask::OnResponse(std::unique_ptr<mysql::Response> response) noexcept
+	void LuaMysqlTask::OnTimeout()
+	{
+		std::unique_ptr<mysql::Response> response = std::make_unique<mysql::Response>(mysql::PACKAGE_ERR);
+		{
+			response->error.emplace_back("time out");
+			this->OnResponse(response);
+		}
+	}
+
+	void LuaMysqlTask::OnResponse(std::unique_ptr<mysql::Response>& response) noexcept
 	{
 		lua_rawgeti(this->mLua, LUA_REGISTRYINDEX, this->mRef);
 		lua_State* coroutine = lua_tothread(this->mLua, -1);

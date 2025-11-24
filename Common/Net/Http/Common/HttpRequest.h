@@ -5,11 +5,8 @@
 #ifndef APP_HTTPREQUEST_H
 #define APP_HTTPREQUEST_H
 #include<string>
-#include<fstream>
-#include<vector>
 #include<memory>
 #include"httpHead.h"
-#include<unordered_map>
 #include"Http/Common/Url.h"
 #include"Http/Common/Content.h"
 #include"Proto/Message/IProto.h"
@@ -41,7 +38,6 @@ namespace http
 	public:
 		inline const Content * GetBody() const { return this->mBody.get();}
 		inline const http::Head & ConstHeader() const { return this->mHead; }
-		inline void SetBody(std::unique_ptr<Content> body) { this->mBody = std::move(body);}
 	public:
 		bool SetUrl(const std::string & url);
 		bool SetUrl(const std::string & url, const http::FromContent & query);
@@ -55,8 +51,9 @@ namespace http
 	public:
 		bool IsMethod(const std::string & method) const;
 		void SetContent(const json::w::Document & document);
-		void SetContent(const char * t, const std::string & content);
-		void SetContent(const char * t, const char * content, size_t size);
+		void SetContent(const std::string & t, const std::string & content);
+		void SetContent(const std::string & t, const char * content, size_t size);
+		inline void SetContent(std::unique_ptr<Content> body) { this->mBody = std::move(body);}
 	public:
 		void Clear() final;
         int OnSendMessage(std::ostream &os) final;

@@ -1,9 +1,10 @@
 #include "TimerBase.h"
+#include"Util/Tools/TimeHelper.h"
 namespace acs
 {
-    TimerBase::TimerBase(long long ms) : mInterval(ms)
+    TimerBase::TimerBase(long long id, int ms) : mInterval(ms)
     {
-		this->mTimerId = help::ID::Create();
-        this->mTargetTime = help::Time::NowMil() + ms;
+		this->mTimerId = id;
+    	this->mTargetTime = 0;
     }
-}// namespace Sentry
+}

@@ -1,6 +1,22 @@
 ﻿
-//#include "vld.h"
+
+#ifdef __ENABLE_MI_MALLOC__
+
+#include "mimalloc-override.h"
+
+#endif
+
+#ifdef __OS_WIN__
+
 #include "Log/Common/Rang.h"
+
+#ifdef __ENABLE_MI_MALLOC__
+
+#include "mimalloc-new-delete.h"
+
+#endif
+#endif
+
 #include "Entity/Actor/App.h"
 #include "Timer/Component/TimerComponent.h"
 #include "Async/Component/CoroutineComponent.h"
@@ -47,11 +63,11 @@
 #include "Watch/Service/Watch.h"
 #include "Watch/Component/WatchComponent.h"
 
-#include "Udp/Component/UdpComponent.h"
-#include "Kcp/Component/KcpComponent.h"
+#include "Udp/Component/OuterUdpComponent.h"
+#include "Kcp/Component/OuterKcpComponent.h"
 
-#include "WebSocket/Component/InnerWebSocketComponent.h"
-#include "WebSocket/Component/OuterWebSocketComponent.h"
+#include "WebSocket/Component/InnerWsComponent.h"
+#include "WebSocket/Component/OuterWsComponent.h"
 
 #include "Mysql/Component/MysqlDBComponent.h"
 
@@ -59,6 +75,7 @@
 #include "Redis/Component/RedisComponent.h"
 #include "Sqlite/Component/SqliteComponent.h"
 #include "Log/Component/LoggerComponent.h"
+#include "Sqlite/Service/SqliteProxy.h"
 
 #include "Router/Component/RouterComponent.h"
 
@@ -68,6 +85,7 @@
 #include "Upload/Service/FileUpload.h"
 
 #include "AliCloud/Component/AliOssComponent.h"
+#include "AliCloud/Component/AliSmsComponent.h"
 #include "WX/Component/WXNoticeComponent.h"
 
 #include "Quick/Service/QuickSDK.h"
@@ -78,7 +96,7 @@
 #include "Client/Component/WsClientComponent.h"
 #include "Web/Service/Admin.h"
 #include "Pgsql/Component/PgsqlDBComponent.h"
-
+#include "Pgsql/Component/PgsqlProxyComponent.h"
 #include "Mongo/Service/MongoBackup.h"
 #include "Telnet/Component/TelnetComponent.h"
 #include "Common/Component/PlayerComponent.h"
@@ -91,131 +109,146 @@
 #include "Pgsql/Service/PgsqlReadProxy.h"
 #include "Pgsql/Service/PgsqlWriteProxy.h"
 #include "Mysql/Service/MysqlBackup.h"
-
+#include "AliCloud/Service/AliOss.h"
 #include "MeiliSearch/Component/MeiliSearchComponent.h"
+
+#include "Client/Component/KcpClientComponent.h"
+#include "Event/Component/EventProxyComponent.h"
+#include "Event/Component/LuaEventComponent.h"
+#include "Pay7xf/Component/Pay7xfComponent.h"
+#include "Pay7xf/Service/Pay7xfService.h"
 using namespace acs;
 
 
+AUTO_REGISTER_COMPONENT(TimerComponent);
+AUTO_REGISTER_COMPONENT(ProtoComponent);
+AUTO_REGISTER_COMPONENT(ThreadComponent);
+AUTO_REGISTER_COMPONENT(NodeComponent);
+AUTO_REGISTER_COMPONENT(CoroutineComponent);
 
-void RegisterComponent()
-{
-	REGISTER_COMPONENT(TimerComponent);
-	REGISTER_COMPONENT(ProtoComponent);
-	REGISTER_COMPONENT(ThreadComponent);
-	REGISTER_COMPONENT(NodeComponent);
-	REGISTER_COMPONENT(CoroutineComponent);
+AUTO_REGISTER_COMPONENT(LaunchComponent);
+AUTO_REGISTER_COMPONENT(RouterComponent);
+AUTO_REGISTER_COMPONENT(InnerTcpComponent);
+AUTO_REGISTER_COMPONENT(DispatchComponent);
+AUTO_REGISTER_COMPONENT(ConfigComponent);
 
-	REGISTER_COMPONENT(LaunchComponent);
-	REGISTER_COMPONENT(RouterComponent);
-	REGISTER_COMPONENT(InnerTcpComponent);
-	REGISTER_COMPONENT(DispatchComponent);
-	REGISTER_COMPONENT(ConfigComponent);
+AUTO_REGISTER_COMPONENT(GateComponent);
+AUTO_REGISTER_COMPONENT(OuterTcpComponent);
 
-	REGISTER_COMPONENT(GateComponent);
-	REGISTER_COMPONENT(OuterTcpComponent);
+AUTO_REGISTER_COMPONENT(RedisSubComponent);
+AUTO_REGISTER_COMPONENT(RedisComponent);
+AUTO_REGISTER_COMPONENT(SqliteComponent);
+AUTO_REGISTER_COMPONENT(MongoDBComponent);
 
-	REGISTER_COMPONENT(RedisSubComponent);
-	REGISTER_COMPONENT(RedisComponent);
-	REGISTER_COMPONENT(SqliteComponent);
-	REGISTER_COMPONENT(MongoDBComponent);
+AUTO_REGISTER_COMPONENT(MysqlDBComponent);
 
-	REGISTER_COMPONENT(MysqlDBComponent);
+AUTO_REGISTER_COMPONENT(LuaComponent);
+AUTO_REGISTER_COMPONENT(HttpComponent);
+AUTO_REGISTER_COMPONENT(LoggerComponent);
+AUTO_REGISTER_COMPONENT(HttpWebComponent);
+AUTO_REGISTER_COMPONENT(TcpClientComponent);
+AUTO_REGISTER_COMPONENT(ListenerComponent);
 
-	REGISTER_COMPONENT(LuaComponent);
-	REGISTER_COMPONENT(HttpComponent);
-	REGISTER_COMPONENT(LoggerComponent);
-	REGISTER_COMPONENT(HttpWebComponent);
-	REGISTER_COMPONENT(TcpClientComponent);
-	REGISTER_COMPONENT(ListenerComponent);
+AUTO_REGISTER_COMPONENT(RecordComponent);
 
-	REGISTER_COMPONENT(RecordComponent);
+AUTO_REGISTER_COMPONENT(DelayMQComponent);
+AUTO_REGISTER_COMPONENT(WXNoticeComponent);
 
-	REGISTER_COMPONENT(DelayMQComponent);
-	REGISTER_COMPONENT(WXNoticeComponent);
+AUTO_REGISTER_COMPONENT(NotifyComponent);
 
-	REGISTER_COMPONENT(NotifyComponent);
-
-	REGISTER_COMPONENT(WatchComponent);
-	REGISTER_COMPONENT(UdpComponent);
-	REGISTER_COMPONENT(KcpComponent);
-	REGISTER_COMPONENT(QuickComponent);
-	REGISTER_COMPONENT(InnerWebSocketComponent);
-	REGISTER_COMPONENT(OuterWebSocketComponent);
-	REGISTER_COMPONENT(WsClientComponent);
+AUTO_REGISTER_COMPONENT(WatchComponent);
+AUTO_REGISTER_COMPONENT(OuterUdpComponent);
+AUTO_REGISTER_COMPONENT(OuterKcpComponent);
+AUTO_REGISTER_COMPONENT(QuickComponent);
+AUTO_REGISTER_COMPONENT(InnerWsComponent);
+AUTO_REGISTER_COMPONENT(OuterWsComponent);
+AUTO_REGISTER_COMPONENT(WsClientComponent);
+AUTO_REGISTER_COMPONENT(KcpClientComponent);
 #ifdef __ENABLE_OPEN_SSL__
-	REGISTER_COMPONENT(WeChatComponent);
-	REGISTER_COMPONENT(WXComplaintComponent);
+AUTO_REGISTER_COMPONENT(WeChatComponent);
+AUTO_REGISTER_COMPONENT(WXComplaintComponent);
 #endif
-	REGISTER_COMPONENT(AliOssComponent);
+AUTO_REGISTER_COMPONENT(AliOssComponent);
+AUTO_REGISTER_COMPONENT(AliSmsComponent);
+AUTO_REGISTER_COMPONENT(PgsqlDBComponent);
+AUTO_REGISTER_COMPONENT(PgsqlProxyComponent);
 
-	REGISTER_COMPONENT(PgsqlDBComponent);
+AUTO_REGISTER_COMPONENT(TelnetComponent);
 
-	REGISTER_COMPONENT(TelnetComponent);
+AUTO_REGISTER_COMPONENT(PlayerComponent);
+AUTO_REGISTER_COMPONENT(Pay7xfComponent);
 
-	REGISTER_COMPONENT(PlayerComponent);
+AUTO_REGISTER_COMPONENT(PubSubComponent);
+AUTO_REGISTER_COMPONENT(MeiliSearchComponent);
+AUTO_REGISTER_COMPONENT(LuaEventComponent);
+AUTO_REGISTER_COMPONENT(EventProxyComponent);
 
-	REGISTER_COMPONENT(PubSubComponent);
-	REGISTER_COMPONENT(MeiliSearchComponent);
-}
 
-void RegisterAll()
-{
-	RegisterComponent();
-
-	REGISTER_COMPONENT(Log);
-	REGISTER_COMPONENT(Admin);
-	REGISTER_COMPONENT(GateSystem);
-	REGISTER_COMPONENT(NodeSystem);
-	REGISTER_COMPONENT(LoginSystem);
-	REGISTER_COMPONENT(MongoBackup);
+AUTO_REGISTER_COMPONENT(Log);
+AUTO_REGISTER_COMPONENT(Admin);
+AUTO_REGISTER_COMPONENT(GateSystem);
+AUTO_REGISTER_COMPONENT(NodeSystem);
+AUTO_REGISTER_COMPONENT(LoginSystem);
+AUTO_REGISTER_COMPONENT(MongoBackup);
 
 #ifdef __ENABLE_OPEN_SSL__
-	REGISTER_COMPONENT(WeChat);
+AUTO_REGISTER_COMPONENT(WeChat);
 #endif
-	REGISTER_COMPONENT(ChatSystem);
-	REGISTER_COMPONENT(LogMgr);
-	REGISTER_COMPONENT(ResourceMgr);
+AUTO_REGISTER_COMPONENT(ChatSystem);
+AUTO_REGISTER_COMPONENT(LogMgr);
+AUTO_REGISTER_COMPONENT(ResourceMgr);
 
-	REGISTER_COMPONENT(FileUpload);
+AUTO_REGISTER_COMPONENT(AliOss);
+AUTO_REGISTER_COMPONENT(FileUpload);
 
-	REGISTER_COMPONENT(QuickSDK);
+AUTO_REGISTER_COMPONENT(QuickSDK);
 
-	REGISTER_COMPONENT(Watch);
-	REGISTER_COMPONENT(PubSubSystem);
+AUTO_REGISTER_COMPONENT(Watch);
+AUTO_REGISTER_COMPONENT(PubSubSystem);
 
-	REGISTER_COMPONENT(RegistryService);
+AUTO_REGISTER_COMPONENT(RegistryService);
 
-	REGISTER_COMPONENT(MongoReadProxy);
-	REGISTER_COMPONENT(MongoWriteProxy);
+AUTO_REGISTER_COMPONENT(MongoReadProxy);
+AUTO_REGISTER_COMPONENT(MongoWriteProxy);
 
-	REGISTER_COMPONENT(MysqlBackup);
-	REGISTER_COMPONENT(MysqlReadProxy);
-	REGISTER_COMPONENT(MysqlWriteProxy);
+AUTO_REGISTER_COMPONENT(MysqlBackup);
+AUTO_REGISTER_COMPONENT(MysqlReadProxy);
+AUTO_REGISTER_COMPONENT(MysqlWriteProxy);
 
-	REGISTER_COMPONENT(PgsqlReadProxy);
-	REGISTER_COMPONENT(PgsqlWriteProxy);
-}
-#include "Core/Bloom/BloomFilter.h"
+AUTO_REGISTER_COMPONENT(PgsqlReadProxy);
+AUTO_REGISTER_COMPONENT(PgsqlWriteProxy);
+
+AUTO_REGISTER_COMPONENT(SqliteProxy);
+AUTO_REGISTER_COMPONENT(Pay7xfService);
+
 int main(int argc, char** argv)
 {
-	bloom::Filter<> bloom_component;
-	bool result1 = bloom_component.Has("192.168.1.2");
-	bloom_component.Set("192.168.1.2");
-	bool result2 = bloom_component.Has("192.168.1.2");
-	bloom_component.Del("192.168.1.2");
-	bool result3 = bloom_component.Has("192.168.1.2");
+#if defined(__ENABLE_MI_MALLOC__) && defined(__DEBUG__)
+	mi_version();
+	//mi_option_enable(mi_option_show_stats);
+	//mi_option_enable(mi_option_verbose);
+#endif
 
 #ifdef __OS_WIN__
-	SetConsoleOutputCP(CP_UTF8);
+	//SetConsoleOutputCP(CP_UTF8);
+	HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+	if(hOut != INVALID_HANDLE_VALUE)
+	{
+		CONSOLE_FONT_INFOEX cfi;
+		cfi.cbSize = sizeof(CONSOLE_FONT_INFOEX);
+		cfi.nFont = 4;
+		wcscpy_s(cfi.FaceName, L"Consolas");
+		SetCurrentConsoleFontEx(hOut, false, &cfi);
+	}
 	setWinTermMode(rang::winTerm::Auto);
 #endif
+
 	int id = 0;
-	RegisterAll();
 	std::string cmd, name;
 	os::System::Init(argc, argv);
 	os::System::GetAppEnv("id", id);
 	os::System::GetAppEnv("name", name);
-	if(!os::System::GetAppEnv("cmd", cmd))
+	if (!os::System::GetAppEnv("cmd", cmd))
 	{
 		return (new App(id, name))->Run();
 	}

@@ -11,7 +11,7 @@ namespace kcp
 	{
 	public:
 		typedef acs::IRpc<rpc::Message, rpc::Message> Component;
-		explicit Client(asio::io_context & io, Component * component, asio_udp::endpoint & remote, Asio::Context & main);
+		explicit Client(asio::io_context & io, Component * component, asio_udp::endpoint & remote);
 		~Client(){ ikcp_release(this->mKcp); }
 	public:
 		void Send(const char *buf, int len) final;
@@ -19,21 +19,20 @@ namespace kcp
 		inline asio_udp::socket & Socket() { return this->mSocket; }
 	public:
 		void StartReceive() final;
-		void Update(long long ms) final;
+		bool Update(long long ms) final;
 	private:
 		void OnReceive(const std::string & addr, const std::string & buf, size_t size);
 	private:
 		ikcpcb * mKcp;
+		long long mLastRecvTime;
 		std::ostream mSendStream;
 		Component * mComponent;
 		asio_udp::socket mSocket;
 		asio::system_timer mTimer;
 		std::string mDecodeBuffer;
-		asio::io_context & mContext;
 		asio::streambuf mSendBuffer;
+		asio_udp::endpoint mEndpoint;
 		asio::streambuf mReceiveBuffer;
-		Asio::Context & mMainContext;
-		asio_udp::endpoint mRemoteEndpoint;
 		asio_udp::endpoint mLocalEndpoint;
 		//char mSendBuffer[std::numeric_limits<unsigned short>::max()] = { 0 };
 	};

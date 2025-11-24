@@ -191,12 +191,11 @@ function MysqlProxyComponent:Like(tab, field, value, fields, sort, limit)
 end
 
 ---@param stmt string
----@param args table
-function MysqlProxyComponent:ExecuteInRead(stmt, args)
+function MysqlProxyComponent:ExecuteInRead(stmt, ...)
     local id = node:Allot(MYSQL_READ_PROXY)
     local code, response = node:Call(id, "MysqlReadProxy.Execute", {
         stmt = stmt,
-        args = args
+        args = { ... }
     })
     if code ~= XCode.Ok then
         return nil
@@ -255,7 +254,7 @@ function MysqlProxyComponent:FindPage(tab, filter, sort, fields, page, count)
     if code ~= XCode.Ok then
         return nil
     end
-    return response.list
+    return response
 end
 
 ---@param sql string
@@ -276,6 +275,24 @@ function MysqlProxyComponent:RunInWrite(sql)
         return nil
     end
     return response.list, response.count
+end
+
+---@param tab string
+---@param field string
+---@param value number
+---@param filter any
+function MysqlProxyComponent:Deduction(tab, field, value, filter)
+    local id = node:Allot(MYSQL_WRITE_PROXY)
+    local code, response = node:Call(id, "MysqlWriteProxy.Deduction", {
+        tab = tab,
+        field = field,
+        value = value,
+        filter = filter
+    })
+    if code ~= XCode.Ok then
+        return 0
+    end
+    return response.count
 end
 
 return MysqlProxyComponent

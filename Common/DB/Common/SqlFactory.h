@@ -109,6 +109,7 @@ namespace sql
 		std::stringstream & Concat(const std::vector<std::string> & arr, char cc);
 		std::stringstream & Concat(const std::vector<const char *> & arr, char cc);
 	private:
+		void WriteValue(const json::r::Value & document);
 		void WriteValue(const std::vector<const char*> & keys, const json::r::Value & document);
 	private:
 		std::string tab;

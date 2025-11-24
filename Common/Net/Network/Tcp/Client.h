@@ -46,9 +46,11 @@ namespace tcp
 		bool ReadSome(int timeout = 0);
 		bool ReadLength(size_t size, int timeout = 0);
 		void Connect(const std::string & host, const std::string & port, int timeout = 0);
+		bool ReadLength(size_t size, std::function<void(const Asio::Code, size_t count)> && callback, int timeout = 0);
 	protected:
 		bool ReadLine(int timeout = 0);
 		bool ReadLine(const std::string & delim, int timeout = 0);
+		bool ReadLine(std::function<void(const Asio::Code, size_t count)> && callback, int timeout = 0);
 	protected:
 		void ClearBuffer();
 		bool SendSync(tcp::IProto & message); //同步发送
@@ -58,8 +60,8 @@ namespace tcp
 		void ClearSendStream();
 		void ClearRecvStream();
 		bool ConnectSync(Asio::Code & code);
-		bool RecvSomeSync(size_t & size); //同步读取数据
 		bool RecvSync(size_t read, size_t & size); //同步读取数据
+		bool RecvSomeSync(size_t & size, unsigned int timeout = 5); //同步读取数据
 		bool ConnectSync(const std::string & host, const std::string & port);
 	protected:
 		bool RecvLineSync(size_t & size); //同步读一行

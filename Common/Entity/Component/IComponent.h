@@ -14,73 +14,68 @@ namespace acs
 	class IStart
 	{
 	public:
+		virtual ~IStart() = default;
 		virtual void OnStart() = 0;
 	};
 
 	class IComplete
 	{
 	public:
+		virtual ~IComplete() = default;
 		virtual void OnComplete() { }; //启动完毕
 	};
 
 	class IAppStop
 	{
 	public:
+		virtual ~IAppStop() = default;
 		virtual void OnAppStop() = 0;
 	};
 
 	class IDestroy
 	{
 	public:
+		virtual ~IDestroy() = default;
 		virtual void OnDestroy() = 0;
-	};
-
-	class IServer
-	{
-	public:
-		virtual void OnExit(int id) = 0;
-		virtual void OnJoin(int id) = 0;
 	};
 
 	//每帧调用
 	class IFrameUpdate
 	{
 	public:
-		virtual void OnFrameUpdate(long long) noexcept = 0;
+		virtual ~IFrameUpdate() = default;
+		virtual void OnFrameUpdate(int elapse) = 0;
 	};
 
 	//每次循环调用
 	class ISystemUpdate
 	{
 	public:
-		virtual void OnSystemUpdate() noexcept = 0;
+		virtual ~ISystemUpdate() = default;
+		virtual void OnSystemUpdate(long long nowMs) = 0;
 	};
 
 	//每秒调用
 	class ISecondUpdate
 	{
 	public:
-		virtual void OnSecondUpdate(int tick) noexcept = 0;
-	};
-
-	//新一天调用
-	class ISystemNewDay
-	{
-	public:
-		virtual void OnNewDay() = 0;
+		virtual ~ISecondUpdate() = default;
+		virtual void OnSecondUpdate(int tick) = 0;
 	};
 
 	//下一帧调用
 	class ILastFrameUpdate
 	{
 	public:
-		virtual void OnLastFrameUpdate(long long) noexcept = 0;
+		virtual ~ILastFrameUpdate() = default;
+		virtual void OnLastFrameUpdate() = 0;
 	};
 
 	// 热重载调用
 	class IRefresh
 	{
 	public:
+		virtual ~IRefresh() = default;
 		virtual bool OnRefresh() = 0;
 	};
 
@@ -88,6 +83,7 @@ namespace acs
 	class IRequest
 	{
 	public:
+		virtual ~IRequest() = default;
 		virtual int OnRequest(const C & c, const T1 & t1) { return 0; }
 		virtual void OnRequestDone(const C & c, const T1 & t1, const T2 & t2) { }
 	};
@@ -102,21 +98,15 @@ namespace acs
 		virtual void OnConnectOK(int id) { }
 		virtual void OnClientError(int id, int code) { };
 		virtual void OnSendFailure(int id, T1 * message) { }
-		virtual void OnMessage(T1* request, T2* response) noexcept { };
-		virtual void OnReadHead(T1* request, T2 * response) noexcept { }
-		virtual void OnMessage(int, T1* request, T2* response) noexcept { };
-	};
-
-	class ILogin
-	{
-	public:
-		virtual void OnLogin(long long player) noexcept = 0;
-		virtual void OnLogout(long long player) noexcept = 0;
+		virtual void OnMessage(T1* request, T2* response) { };
+		virtual void OnReadHead(T1* request, T2 * response) { }
+		virtual void OnMessage(int, T1* request, T2* response) { };
 	};
 
     class IServerRecord
     {
     public:
+    	virtual ~IServerRecord() = default;
         virtual void OnRecord(json::w::Document & document) = 0;
     };
 

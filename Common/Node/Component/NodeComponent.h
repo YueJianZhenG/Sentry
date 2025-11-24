@@ -4,7 +4,6 @@
 
 #ifndef APP_NODECOMPONENT_H
 #define APP_NODECOMPONENT_H
-#include <utility>
 
 #include "Node/Actor/Node.h"
 #include "Core/Map/HashMap.h"
@@ -42,25 +41,27 @@ namespace acs
 	public:
 		NodeComponent();
 	public:
+		Node * Get(int id);
 		Node * Next(const std::string & name);
 		Node * Rand(const std::string & name);
 		Node * Hash(const std::string & name, long long key);
 	public:
-		Node * Get(int id);
 		bool Remove(int id);
 		bool Add(std::unique_ptr<Node> node);
 	public:
-		size_t GetNodes(std::vector<int> & nodes);
+		std::vector<int> GetNodes();
+		std::vector<int> GetNodes(const std::string & node);
+	public:
 		bool AddCluster(const std::string & name, int id);
 		NodeCluster * GetCluster(const std::string & name);
 		inline size_t GetActorCount() const { return this->mActors.size(); }
 		bool GetListen(int id, const std::string & net, std::string & address);
+		int Broadcast(std::unique_ptr<rpc::Message> & message) final;
 	private:
 		bool LateAwake() final;
 		bool InitNodeFromFile();
 		Actor * GetActor(long long id) final;
 		void OnRecord(json::w::Document &document) final;
-		int Broadcast(std::unique_ptr<rpc::Message> message, int & count) final;
 	private:
 		std::vector<std::unique_ptr<Node>> mActors;
 		std::vector<std::unique_ptr<NodeCluster>> mClusters;

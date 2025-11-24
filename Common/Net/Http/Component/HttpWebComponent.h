@@ -5,6 +5,7 @@
 #ifndef APP_HTTPWEBCOMPONENT_H
 #define APP_HTTPWEBCOMPONENT_H
 #include "Http/Client/Http.h"
+#include "Event/Base/IEvent.h"
 #include "Http/Common/Config.h"
 #include "Http/Common/httpHead.h"
 #include "Net/Record/RecordInfo.h"
@@ -27,16 +28,23 @@ namespace http
 	struct Token
 	{
 		int UserId = 0;
-		int ClubId = 0;
-		int Permission = 0;
-		long long ExpTime = 0;
+		int Access = 0; //权限
+		long long ExpTime = 0; //过期时间
 	};
 }
 
 namespace acs
 {
-    class HttpMethodConfig;
-	using IHttpRecordComponent = IRequest<HttpMethodConfig, http::Request, http::Response>;
+	class HttpMethodConfig;
+}
+
+namespace help
+{
+	DEFINE_STATIC_EVENT(HttpRequestEvent, const acs::HttpMethodConfig *, http::Request *, http::Response *);
+}
+
+namespace acs
+{
 	class HttpWebComponent final : public Component, public IServerRecord,
 								   public IRpc<http::Request, http::Response>, public ITcpListen
     {
@@ -57,6 +65,7 @@ namespace acs
 		bool ReadMessageBody(int id, std::unique_ptr<http::Content> content, int timeout);
 		HttpStatus AuthToken(const HttpMethodConfig* config, http::Request *request) noexcept;
 		HttpStatus OnNotFound(const std::string & path, std::unique_ptr<http::Content> & content) noexcept;
+	private:
 		bool SendResponse(int fd, HttpStatus code, int timeout);
 		bool SendResponse(int fd, HttpStatus code, std::unique_ptr<http::Content> httpContent, int timeout);
 		HttpStatus CreateContent(const HttpMethodConfig* config, const http::Head & head, std::unique_ptr<http::Content> & content) noexcept;
@@ -69,7 +78,6 @@ namespace acs
 		record::Info mRecordInfo;
 		http::ContentFactory mFactory;
 		math::NumberPool<int> mNumPool;
-		IHttpRecordComponent * mRecord;
 		std::vector<std::string> mRoots;
 		class CoroutineComponent * mCoroutine;
 		std::vector<std::shared_ptr<http::Session>> mObjectPool;

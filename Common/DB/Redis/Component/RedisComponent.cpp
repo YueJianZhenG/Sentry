@@ -13,12 +13,7 @@ namespace acs
 	{
 		this->mSumCount = 0;
 		this->mRetryCount = 0;
-		REGISTER_JSON_CLASS_FIELD(redis::Cluster, ping);
-		REGISTER_JSON_CLASS_FIELD(redis::Cluster, count);
-		REGISTER_JSON_CLASS_FIELD(redis::Cluster, retry);
-		REGISTER_JSON_CLASS_FIELD(redis::Cluster, debug);
-		REGISTER_JSON_CLASS_FIELD(redis::Cluster, script);
-		REGISTER_JSON_CLASS_MUST_FIELD(redis::Cluster, address);
+		redis::Cluster::RegisterAllFields();
 	}
 
     bool RedisComponent::Awake()
@@ -43,32 +38,22 @@ namespace acs
 		auto response = this->Run("PING");
 		std::unique_ptr<json::w::Value> data = document.AddObject("redis");
 		{
-			size_t sendByteCount = 0;
-			size_t recvByteCount = 0;
-			for(auto iter = this->mClients.begin(); iter != this->mClients.end(); iter++)
+			if(response->HasError())
 			{
-				sendByteCount += iter->second->SendBufferBytes();
-				recvByteCount += iter->second->RecvBufferBytes();
+				data->Add("error", response->element.message);
 			}
-
-
-
 			data->Add("sum", this->mSumCount);
 			data->Add("retry", this->mRetryCount);
 			data->Add("client", this->mClients.size());
 			data->Add("free", this->mFreeClients.Size());
 			data->Add("ping", fmt::format("{}ms", timer1.GetMs()));
 			data->Add("wait", this->AwaitCount() + this->mRequests.size());
-
-			data->Add("send_memory", sendByteCount);
-			data->Add("recv_memory", recvByteCount);
 		}
 	}
 
     bool RedisComponent::LateAwake()
 	{
 		LOG_CHECK_RET_FALSE(!this->mConfig.address.empty())
-
 		for (int x = 0; x < this->mConfig.address.size(); x++)
 		{
 			const std::string & address = this->mConfig.address[x];
@@ -84,11 +69,10 @@ namespace acs
 				int id = (x + 1) * 100 + index + 1;
 				config.conn_count = this->mConfig.conn_count;
 				Asio::Context& io = this->mApp->GetContext();
-				tcp::Socket* sock = this->GetComponent<ThreadComponent>()->CreateSocket(address);
-				std::shared_ptr<redis::Client> redisClient = std::make_shared<redis::Client>(id, config,
-						this, io);
+				tcp::Socket* socket = this->GetComponent<ThreadComponent>()->CreateSocket(address);
+				std::shared_ptr<redis::Client> redisClient = std::make_shared<redis::Client>(id, config, this, io);
 				{
-					if (!redisClient->Start(sock))
+					if (!redisClient->Start(socket))
 					{
 						LOG_ERROR("connect {} fail", address);
 						return false;
@@ -185,16 +169,17 @@ namespace acs
 			LOG_ERROR("redis request = {}", request->ToString());
 			LOG_ERROR("redis response = {}", response->ToString());
 		}
+#ifdef __DEBUG__
 		else if(this->mConfig.debug)
 		{
 			CONSOLE_LOG_DEBUG("[request] = {}", request->ToString());
 			CONSOLE_LOG_DEBUG("[response:{}ms] = {}", request->GetCostTime(), response->ToString());
 		}
-
+#endif
 		int rpcId = request->GetRpcId();
 		if(rpcId > 0)
 		{
-			this->OnResponse(rpcId, std::move(response));
+			this->OnResponse(rpcId, response);
 		}
 	}
 
@@ -209,7 +194,7 @@ namespace acs
     {
 		int taskId = 0;
 		this->Send(request, taskId);
-		return this->BuildRpcTask<RedisTask>(taskId)->Await();
+		return this->BuildRpcTask<RedisTask>(taskId, this->mConfig.timeout)->Await();
     }
 
 	void RedisComponent::Send(std::unique_ptr<redis::Request> & request)
@@ -278,7 +263,7 @@ namespace acs
 		return true;
 	}
 
-	bool RedisComponent::Send(const acs::RedisLuaData& data, int& taskId) noexcept
+	bool RedisComponent::Send(const acs::RedisLuaData& data, int& taskId, unsigned int & timeout) noexcept
 	{
 		std::unique_ptr<redis::Request> request;
 		if (!this->MakeLuaRequest(data, request))
@@ -286,6 +271,7 @@ namespace acs
 			return false;
 		}
 		this->Send(request, taskId);
+		timeout = this->mConfig.timeout;
 		return true;
 	}
 

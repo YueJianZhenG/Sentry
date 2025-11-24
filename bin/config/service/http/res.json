@@ -31,8 +31,9 @@
         "type": "POST",
         "auth": true,
         "Limit": 0,
-        "permission": 5,
+        "access": 5,
         "bind": "ResourceMgr.Upload",
+        "upload" : "${WORK_DIR}/www/dist",
         "content-type": "multipart/form-data",
         "desc": "上传文件"
     },

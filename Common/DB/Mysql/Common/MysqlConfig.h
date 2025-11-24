@@ -9,14 +9,6 @@
 
 namespace mysql
 {
-	class Binlog : public json::Object<Binlog>
-	{
-	public:
-		unsigned int id;
-		std::string file;
-		unsigned int pos;
-	};
-
 	class Cluster : public json::Object<Cluster>
 	{
 	public:
@@ -28,9 +20,10 @@ namespace mysql
 		std::string table;
 		std::string binlog;
 		db::Explain explain;
+		unsigned int timeout = 15;
 		std::vector<std::string> address;
 	public:
-		inline static void RegisterFields()
+		inline static void RegisterAllFields()
 		{
 			REGISTER_JSON_CLASS_FIELD(mysql::Cluster, ping);
 			REGISTER_JSON_CLASS_FIELD(mysql::Cluster, count);
@@ -98,7 +91,7 @@ namespace mysql
 		// 示例：`idx_a,idx_b` 表示优化器在 `idx_a` 和 `idx_b` 之间选择。
 
 	public:
-		inline static void RegisterFields()
+		inline static void RegisterAllFields()
 		{
 			REGISTER_JSON_CLASS_FIELD(mysql::Explain, id);
 			REGISTER_JSON_CLASS_FIELD(mysql::Explain, ref);

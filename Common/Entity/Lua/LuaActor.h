@@ -23,7 +23,6 @@ namespace acs
 		extern int Call(lua_State * l);
 		extern int Broadcast(lua_State * L);
 		extern int GetServers(lua_State * l);
-		extern int LuaPushCode(lua_State * l, int code);
 	};
 }
 

@@ -41,7 +41,7 @@ namespace acs
 		}
 	}
 
-	bool Player::DelServer(const std::string& server)
+	bool Player::DelNode(const std::string& server)
 	{
 		auto iter = std::find_if(this->mServerAddrs.begin(), this->mServerAddrs.end(),
 				[server](const std::pair<std::string, int>& item)
@@ -56,7 +56,7 @@ namespace acs
 		return true;
 	}
 
-	void Player::AddServer(const std::string& server, int id)
+	void Player::AddNode(const std::string& server, int id)
 	{
 		if(server.empty())
 		{
@@ -75,17 +75,7 @@ namespace acs
 		this->mServerAddrs.emplace_back(server, id);
 	}
 
-	void Player::GetActors(std::vector<int>& actors) const
-	{
-		actors.reserve(this->mServerAddrs.size());
-		auto iter = this->mServerAddrs.begin();
-		for(; iter != this->mServerAddrs.end(); iter++)
-		{
-			actors.emplace_back(iter->second);
-		}
-	}
-
-	bool Player::GetServerId(const std::string& server, int & id) const
+	bool Player::GetNodeID(const std::string& server, int & id) const
 	{
 		auto iter = std::find_if(this->mServerAddrs.begin(), this->mServerAddrs.end(),
 				[server](const std::pair<std::string, int>& item)
@@ -104,7 +94,7 @@ namespace acs
 	{
 		const std::string & func = request.ConstHead().GetStr(rpc::Header::func);
 		const RpcMethodConfig * methodConfig = RpcConfig::Inst()->GetMethodConfig(func);
-		return methodConfig != nullptr && this->GetServerId(methodConfig->server, id);
+		return methodConfig != nullptr && this->GetNodeID(methodConfig->node, id);
 	}
 
 
@@ -126,7 +116,7 @@ namespace acs
 				message->SetType(rpc::type::client);
 				message->GetHead().Add(rpc::Header::client_sock_id, this->mSockId);
 			}
-			else if(this->GetServerId(methodConfig->server, serverId))
+			else if(this->GetNodeID(methodConfig->node, serverId))
 			{
 				message->SetNet(methodConfig->net);
 				message->SetType(rpc::type::request);

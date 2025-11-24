@@ -100,7 +100,7 @@ namespace acs
 				return code;
 			}
 			document2->Add("code", code);
-			response.Json(*document2);
+			response.SetContent(*document2);
 			return code;
 		}
 
@@ -155,7 +155,7 @@ namespace acs
 				return code;
 			}
 			document->Add("code", code);
-			response.Json(*document);
+			response.SetContent(*document);
 			return code;
 		}
 
@@ -195,7 +195,7 @@ namespace acs
 				return code;
 			}
 			document2->Add("code", code);
-			response.Json(*document2);
+			response.SetContent(*document2);
 			return code;
 		}
 
@@ -230,7 +230,7 @@ namespace acs
 				return code;
 			}
 			document2->Add("code", code);
-			response.Json(*document2);
+			response.SetContent(*document2);
 			return code;
 		}
 
@@ -285,7 +285,7 @@ namespace acs
 				return code;
 			}
 			document2->Add("code", code);
-			response.Json(*document2);
+			response.SetContent(*document2);
 			return code;
 		}
 
@@ -332,7 +332,7 @@ namespace acs
 				return code;
 			}
 			document2->Add("code", code);
-			response.Json(*document2);
+			response.SetContent(*document2);
 			return code;
 		}
 
@@ -411,7 +411,7 @@ namespace acs
 				return code;
 			}
 			document2->Add("code", code);
-			response.Json(*document2);
+			response.SetContent(*document2);
 			return code;
 		}
 
@@ -440,7 +440,7 @@ namespace acs
 				return code;
 			}
 			document2->Add("code", code);
-			response.Json(*document2);
+			response.SetContent(*document2);
 			return code;
 		}
 

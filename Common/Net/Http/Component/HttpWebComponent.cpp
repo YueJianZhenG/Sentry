@@ -2,27 +2,25 @@
 // Created by zmhy0073 on 2022/6/21.
 //
 
-#include"HttpWebComponent.h"
-#include"Entity/Actor/App.h"
+#include "HttpWebComponent.h"
+#include "Entity/Actor/App.h"
 #include "Timer/Timer/ElapsedTimer.h"
-#include"Core/System/System.h"
-#include"Http/Client/HttpSession.h"
-#include"Http/Service/HttpService.h"
-#include"Util/File/DirectoryHelper.h"
-#include"Util/File/FileHelper.h"
-#include"Server/Config/CodeConfig.h"
-#include"Util/Tools/TimeHelper.h"
-
+#include "Core/System/System.h"
+#include "Http/Client/HttpSession.h"
+#include "Http/Service/HttpService.h"
+#include "Util/File/DirectoryHelper.h"
+#include "Util/File/FileHelper.h"
+#include "Server/Config/CodeConfig.h"
+#include "Util/Tools/TimeHelper.h"
+#include "Auth/Jwt/Jwt.h"
 namespace acs
 {
 	HttpWebComponent::HttpWebComponent()
 	{
-		this->mRecord = nullptr;
 		this->mConfig.index = "index.html";
 		REGISTER_JSON_CLASS_FIELD(http::Config, auth);
 		REGISTER_JSON_CLASS_FIELD(http::Config, root);
 		REGISTER_JSON_CLASS_FIELD(http::Config, index);
-		REGISTER_JSON_CLASS_FIELD(http::Config, upload);
 		REGISTER_JSON_CLASS_FIELD(http::Config, domain);
 		REGISTER_JSON_CLASS_FIELD(http::Config, header);
 		REGISTER_JSON_CLASS_FIELD(http::Config, whiteList);
@@ -38,6 +36,7 @@ namespace acs
 		this->mFactory.Add<http::TextContent>(http::Header::XML);
 		this->mFactory.Add<http::TextContent>(http::Header::TEXT);
 
+		this->mFactory.Add<http::FileContent>(http::Header::ZIP);
 		this->mFactory.Add<http::FileContent>(http::Header::CSS);
 		this->mFactory.Add<http::FileContent>(http::Header::HTML);
 		this->mFactory.Add<http::FileContent>(http::Header::JPG);
@@ -46,7 +45,7 @@ namespace acs
 
 		this->mFactory.Add<http::BinContent>(http::Header::PB);
 
-		this->mFactory.Add<http::MultipartFromContent>(http::Header::MulFromData);
+		this->mFactory.Add<http::FileContent>(http::Header::MulFromData);
 
 		this->mHttpClients.max_load_factor(0.75);
 		this->mHttpClients.reserve(200);
@@ -67,13 +66,20 @@ namespace acs
 		LOG_CHECK_RET_FALSE(config->Get("http", this->mConfig));
 		if (!this->mConfig.root.empty())
 		{
-			this->AddRootDirector(this->mConfig.root);
-			if(!this->mConfig.index.empty())
+			for(const std::string & rootDir : this->mConfig.root)
 			{
-				this->mPath = fmt::format("{}/{}", this->mConfig.root, this->mConfig.index);
+				this->AddRootDirector(rootDir);
+				if(!this->mConfig.index.empty() && this->mPath.empty())
+				{
+					const std::string & index = this->mConfig.index;
+					std::string path = fmt::format("{}/{}", rootDir, index);
+					if(help::fs::FileIsExist(path))
+					{
+						this->mPath = path;
+					}
+				}
 			}
 		}
-		this->mRecord = this->mApp->GetComponent<IHttpRecordComponent>();
 		return true;
 	}
 
@@ -207,17 +213,17 @@ namespace acs
 		}
 		if (content->GetContentType() == http::ContentType::MULTIPAR)
 		{
-			if (this->mConfig.upload.empty())
+			if (httpConfig->upload.empty())
 			{
 				return HttpStatus::BAD_REQUEST;
 			}
 			const int limit = httpConfig->limit;
-			const std::string& path = this->mConfig.upload;
+			const std::string& path = httpConfig->upload;
 			content->Cast<http::MultipartFromContent>()->Init(path, limit);
 		}
 		else if (content->GetContentType() == http::ContentType::FILE)
 		{
-			if (this->mConfig.upload.empty())
+			if (httpConfig->upload.empty())
 			{
 				return HttpStatus::BAD_REQUEST;
 			}
@@ -228,7 +234,7 @@ namespace acs
 			}
 			long long guid = this->mApp->MakeGuid();
 			std::string type = cont_type.substr(pos + 1);
-			const std::string& upload = this->mConfig.upload;
+			const std::string& upload = httpConfig->upload;
 			const std::string path = fmt::format("{}/{}.{}", upload, guid, type);
 			if (!content->Cast<http::FileContent>()->MakeFile(path))
 			{
@@ -266,7 +272,7 @@ namespace acs
 		}
 		std::unique_ptr<http::FileContent> fileContent = std::make_unique<http::FileContent>();
 		{
-			std::string contentType = http::Header::TEXT;
+			std::string contentType = http::Header::Bin;
 			size_t pos = filePath.find_last_of('.');
 			if (pos != std::string::npos)
 			{
@@ -324,20 +330,20 @@ namespace acs
 		}
 #ifdef __ENABLE_OPEN_SSL__
 		json::r::Document document;
-		if (!this->mApp->DecodeSign(token, document))
+		const ServerConfig & conf = this->mApp->Config();
+		if(!jwt::Decode(token, conf.GetSecretKey(), document))
 		{
 			return HttpStatus::UNAUTHORIZED;
 		}
 
 		http::Token httpToken;
+		document.Get("a", httpToken.Access);
 		document.Get("u", httpToken.UserId);
-		document.Get("c", httpToken.ClubId);
 		document.Get("t", httpToken.ExpTime);
-		document.Get("p", httpToken.Permission);
-		if (httpToken.Permission < config->permission)
+		if (httpToken.Access < config->access)
 		{
 			LOG_ERROR("[{}] user_id:{} permission:{}/{}", config->path,
-					httpToken.UserId, httpToken.Permission, config->permission);
+					httpToken.UserId, httpToken.Access, config->access);
 			return HttpStatus::NOT_FOUND;
 		}
 		long long nowTime = help::Time::NowSec();
@@ -349,8 +355,7 @@ namespace acs
 		http::FromContent& query = const_cast<http::FromContent&>(request->GetUrl().GetQuery());
 		{
 			query.Set(http::query::UserId, httpToken.UserId);
-			query.Set(http::query::ClubId, httpToken.ClubId);
-			query.Set(http::query::Permission, httpToken.Permission);
+			query.Set(http::query::Access, httpToken.Access);
 		}
 #endif
 		return HttpStatus::OK;
@@ -366,16 +371,17 @@ namespace acs
 	void HttpWebComponent::Invoke(const HttpMethodConfig* config, http::Request* request, http::Response* response) noexcept
 	{
 		this->mRecordInfo.wait++;
-		HttpStatus code = HttpStatus::OK;
 		int sockId = request->GetSockId();
+		response->SetCode(HttpStatus::OK);
+		HttpStatus httpStatus = HttpStatus::OK;
 		std::shared_ptr<http::Session> session = this->GetClient(sockId); //保留一次引用计数，避免回调执行回来了,对象没了
 		do
 		{
 			http::Head& head = request->Header();
 			if (this->mConfig.auth && config->auth)
 			{
-				code = this->AuthToken(config, request);
-				if (code != HttpStatus::OK)
+				httpStatus = this->AuthToken(config, request);
+				if (httpStatus != HttpStatus::OK)
 				{
 					break;
 				}
@@ -384,7 +390,7 @@ namespace acs
 			if (httpService == nullptr)
 			{
 				std::string ip;
-				code = HttpStatus::NOT_FOUND;
+				httpStatus = HttpStatus::NOT_FOUND;
 				head.Get(http::Header::RealIp, ip);
 				LOG_ERROR("[{}] {} {}", ip, request->GetUrl().Path(), HttpStatusToString(HttpStatus::NOT_FOUND));
 				break;
@@ -392,35 +398,47 @@ namespace acs
 #ifdef __DEBUG__
 			timer::ElapsedTimer timer;
 #endif
-			int logicCode = httpService->Invoke(config, *request, *response);
+			int code = XCode::Ok;
+			try
+			{
+				code = httpService->Invoke(config, *request, *response);
+			}
+			catch(const std::exception & e)
+			{
+				code = XCode::ThrowError;
+				LOG_FATAL("call http [{}.{}] => {}", config->service, config->method, e.what());
+			}
+			catch(...)
+			{
+				code = XCode::ThrowError;
+				LOG_FATAL("call http [{}.{}] => unknown exception error", config->service, config->method);
+			}
 			if (response->GetBody() == nullptr)
 			{
 				json::w::Document document;
-				const std::string& desc = CodeConfig::Inst()->GetDesc(logicCode);
+				const std::string & desc = CodeConfig::Inst()->GetDesc(code);
 				{
+					document.Add("code", code);
 					document.Add("error", desc);
-					document.Add("code", logicCode);
-					response->Json(document);
 				}
+				response->SetContent(document);
 			}
 #ifdef __DEBUG__
-			if (logicCode != XCode::Ok)
+			if (code != XCode::Ok)
 			{
 				std::string ip;
 				head.Get(http::Header::RealIp, ip);
 				const http::Url& url = request->GetUrl();
-				const std::string& desc = CodeConfig::Inst()->GetDesc(logicCode);
-				LOG_WARN("[{}ms] ({})[{}] code:{} => {}", timer.GetMs(), url.Method(), url.ToStr(), logicCode, desc);
+				const std::string & desc = CodeConfig::Inst()->GetDesc(code);
+				LOG_WARN("[{}ms] ({})[{}] code:{} => {}", timer.GetMs(), url.Method(), url.ToStr(), code, desc);
 			}
 #endif
+			httpStatus = response->Code();
 		}
 		while (false);
 		this->mRecordInfo.wait--;
-		if(config->record && this->mRecord != nullptr)
-		{
-			this->mRecord->OnRequestDone(*config, *request, *response);
-		}
-		this->SendResponse(sockId, code, this->mConfig.send_timeout);
+		help::HttpRequestEvent::Trigger(config, request, response);
+		this->SendResponse(sockId, httpStatus, this->mConfig.send_timeout);
 	}
 
 	void HttpWebComponent::OnRecord(json::w::Document& document)

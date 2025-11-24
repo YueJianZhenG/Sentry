@@ -9,10 +9,10 @@
 
 namespace custom
 {
-	WeChatOutput::WeChatOutput(std::string  url)
-			: mUrl(std::move(url))
+	WeChatOutput::WeChatOutput(std::string url)
+		: mUrl(std::move(url))
 #ifdef __ENABLE_OPEN_SSL__
-			, mCtx(asio::ssl::context::sslv23)
+		  , mCtx(asio::ssl::context::sslv23)
 #endif
 	{
 	}
@@ -41,14 +41,17 @@ namespace custom
 			case custom::LogLevel::Fatal:
 				content.append(fmt::format("<font color=comment> **{}** </font>  {}\n", "等级", "fatal"));
 				break;
+			default:
+				content.append(fmt::format("<font color=comment> **{}** </font>  {}\n", "等级", name));
+				break;
 			}
 			content.append(fmt::format("<font color=comment> **{}** </font>  {}\n", "时间", time));
 			content.append(fmt::format("<font color=comment> **{}** </font>  {}\n", "文件", log.File));
 			content.append(fmt::format("<font color=comment> **{}** </font>  {}\n", "内容", log.Content));
 
-			if(!log.Stack.empty())
+			if (log.Stack != nullptr)
 			{
-				content.append(fmt::format("<font color=comment> **{}** </font>  {}\n", "堆栈", log.Stack));
+				content.append(fmt::format("<font color=comment> **{}** </font>  {}\n", "堆栈", *log.Stack));
 			}
 			message.Add("content", content);
 		}
@@ -78,7 +81,11 @@ namespace custom
 			this->mClient = std::make_shared<http::Client>(nullptr, io);
 			return true;
 		}
-		catch(const std::system_error & error)
+		catch (const std::system_error& error)
+		{
+			return false;
+		}
+		catch(...)
 		{
 			return false;
 		}

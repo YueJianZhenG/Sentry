@@ -48,6 +48,7 @@ format_member = function(json, key, value)
 end
 
 function JsonExport.Run(documents)
+    local count = 0
     local json = require("util.json")
     local jsonArray = json.new(true)
     for _, document in ipairs(documents) do
@@ -55,12 +56,18 @@ function JsonExport.Run(documents)
         for k, _ in pairs(document) do
             table.insert(keys, k)
         end
-        table.sort(keys)
+        table.sort(keys, function(a, b)
+            return #a < #b
+        end)
         local jsonObject = jsonArray:add_object(v)
         for _, key in ipairs(keys) do
             local value = document[key]
             format_member(jsonObject, key, value)
         end
+        count = count + 1
+    end
+    if count <= 0 then
+        return nil
     end
     return jsonArray:encode(true)
 end

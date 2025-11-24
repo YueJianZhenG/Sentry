@@ -8,7 +8,7 @@
 #include "Core/System/System.h"
 #include "Util/Tools/TimeHelper.h"
 #include "Yyjson/Document/Document.h"
-#include "Core/Event/IEvent.h"
+#include "Event/Base/IEvent.h"
 #include "Timer/Timer/ElapsedTimer.h"
 #include "Lua/Component/LuaComponent.h"
 #include "Server/Component/ConfigComponent.h"
@@ -34,9 +34,14 @@
 #include "Async/Source/WaitTaskSourceBase.h"
 
 #endif
-
+#ifdef __ENABLE_MI_MALLOC__
+#include "mimalloc.h"
+#include "mimalloc-stats.h"
+#endif
+#include "Util/Core/Com.h"
 namespace acs
 {
+
 	NodeSystem::NodeSystem()
 		: mNode(nullptr)
 	{
@@ -139,12 +144,22 @@ namespace acs
 			{
 				jsonObject->Add(item.first.c_str(), item.second);
 			}
-			constexpr double MB = 1024 * 1024.0f;
 			document.Add("cpu", fmt::format("{:.3f}%", systemInfo.cpu));
-			document.Add("use_memory", fmt::format("{:.3f}MB", systemInfo.use_memory / MB));
-			document.Add("max_memory", fmt::format("{:.3f}GB", systemInfo.max_memory / (MB * 1024)));
-			document.Add("cost_memory", fmt::format("{:.3f}MB", (systemInfo.use_memory - startMemory) / MB));
+			document.Add("use_memory", help::com::BytesToString(systemInfo.use_memory));
+			document.Add("max_memory", help::com::BytesToString(systemInfo.max_memory));
+			document.Add("cost_memory", help::com::BytesToString(systemInfo.use_memory - startMemory));
 			document.Add("const_memory_b", systemInfo.use_memory - startMemory);
+#ifdef __ENABLE_MI_MALLOC__
+			std::unique_ptr<json::w::Value> mallocObject = document.AddObject("mimalloc");
+			{
+				//mi_stats_t stats;
+				//mi_stats_get(sizeof(mi_stats_t), &stats);
+				// mallocObject->Add("version", stats.version);
+				// mallocObject->Add("threads", stats.threads.current);
+				// mallocObject->Add("committed", stats.committed.current);
+			}
+#endif
+
 #ifdef __SHARE_PTR_COUNTER__
 			size_t count1 = rpc::Message::GetObjectCount();
 			size_t count2 = rpc::InnerTcpClient::GetObjectCount();
@@ -236,6 +251,9 @@ namespace acs
         }
 #ifdef __OS_LINUX__
 		malloc_trim(0);
+#endif
+#ifdef __ENABLE_MI_MALLOC__
+		mi_collect(true);
 #endif
         return XCode::Ok;
     }

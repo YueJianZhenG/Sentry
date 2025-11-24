@@ -1,0 +1,21 @@
+{
+	"/oss/make": {
+		"type": "GET",
+		"auth": false,
+		"bind": "AliOss.Make",
+		"desc": "生成http头",
+		"request": {
+			"type": "image/png",
+			"name" : "文件夹"
+		}
+	},
+	"/oss/upload": {
+		"type": "POST",
+		"auth": false,
+		"async" : true,
+		"access": 5,
+		"limit" : 0,
+		"bind": "AliOss.Upload",
+		"desc": "上传图片或者json"
+	}
+}

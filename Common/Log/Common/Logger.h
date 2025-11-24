@@ -5,7 +5,6 @@
 #ifndef APP_LOGGER_H
 #define APP_LOGGER_H
 #include"Level.h"
-#include<Core/Map/HashMap.h>
 #include<Core/Thread/AsioThread.h>
 #include <Yyjson/Object/JsonObject.h>
 namespace custom
@@ -44,6 +43,7 @@ namespace custom
 	public:
 		virtual void Flush() { };
 		virtual void Close() { };
+		virtual void OnNewDay() { }
 		virtual void OnTick(int tick) { }
 		virtual bool Start(Asio::Context & io) { return true; };
 		virtual void Push(Asio::Context &io, const std::string & name, const LogInfo & logInfo) = 0;
@@ -59,8 +59,11 @@ namespace custom
 		void Flush();
 		bool Start();
 		void Close();
+		void OnNewDay();
 		void SetLevel(custom::LogLevel level);
-		void Push(std::unique_ptr<LogInfo> logInfo);
+		void Push(std::unique_ptr<LogInfo>& logInfo);
+		void Push(const std::string & name, std::unique_ptr<LogInfo>& logInfo);
+		const std::string & GetName() const { return this->mName; }
 	public:
 
 		template<typename T, typename ... Args>

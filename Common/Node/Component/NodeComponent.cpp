@@ -2,7 +2,7 @@
 #include "Lua/Engine/ModuleClass.h"
 #include "Server/Config/ServerConfig.h"
 #include "Lua/Component/LuaComponent.h"
-#include "Core/Event/IEvent.h"
+#include "Event/Base/IEvent.h"
 #include "Util/Tools/Random.h"
 #include "Rpc/Config/ServiceConfig.h"
 namespace acs
@@ -114,7 +114,6 @@ namespace acs
 						LOG_CHECK_RET_FALSE(server1->AddListen(key, address))
 					}
 					this->Add(std::move(server1));
-					LOG_INFO("add new server {}:{}", name, id);
 				}
 			}
 		}
@@ -157,54 +156,64 @@ namespace acs
 			nodeCluster->Remove(id);
 		}
 		this->mActors.erase(iter);
-		LOG_DEBUG("[{}] remove node => name:{} id:{}", this->mActors.size(), name, id)
+		LOG_INFO("[{}] remove node => name:{} id:{}", this->mActors.size(), name, id)
 		return true;
 	}
 
-	int NodeComponent::Broadcast(std::unique_ptr<rpc::Message> message, int & count)
+	int NodeComponent::Broadcast(std::unique_ptr<rpc::Message>& message)
 	{
-		count = 0;
-		std::string func;
-		rpc::Head & head = message->GetHead();
-		if(!head.Get(rpc::Header::func, func))
+		int count = 0;
+		do
 		{
-			return XCode::Failure;
-		}
-		const RpcMethodConfig * rpcMethodConfig = RpcConfig::Inst()->GetMethodConfig(func);
-		if(rpcMethodConfig == nullptr)
-		{
-			return XCode::NotFoundRpcConfig;
-		}
-		NodeCluster * nodeCluster = this->GetCluster(rpcMethodConfig->server);
-		if(nodeCluster == nullptr)
-		{
-			return XCode::NotFoundActor;
-		}
-		for(int id : nodeCluster->GetNodes())
-		{
-			Node * node = this->Get(id);
-			if(node != nullptr)
+			std::string func;
+			rpc::Head & head = message->GetHead();
+			if(!head.Get(rpc::Header::func, func))
+			{
+				break;
+			}
+			const RpcMethodConfig * rpcMethodConfig = RpcConfig::Inst()->GetMethodConfig(func);
+			if(rpcMethodConfig == nullptr)
+			{
+				return XCode::NotFoundRpcConfig;
+			}
+			for(std::unique_ptr<Node> & actor : this->mActors)
 			{
 				std::unique_ptr<rpc::Message> rpcMessage = message->Clone();
 				{
-					rpcMessage->SetSockId(id);
-					if(node->SendMsg(std::move(rpcMessage)) == XCode::Ok)
+					rpcMessage->SetSockId(actor->GetNodeId());
+					if(actor->Send(rpcMessage) == XCode::Ok)
 					{
 						++count;
 					}
 				}
 			}
 		}
-		return XCode::Ok;
+		while(false);
+		return count;
 	}
 
-	size_t NodeComponent::GetNodes(std::vector<int>& nodes)
+	std::vector<int> NodeComponent::GetNodes()
 	{
+		std::vector<int> nodes;
+		nodes.reserve(this->mActors.size());
 		for(std::unique_ptr<Node> & node : this->mActors)
 		{
 			nodes.emplace_back(node->GetNodeId());
 		}
-		return nodes.size();
+		return nodes;
+	}
+
+	std::vector<int> NodeComponent::GetNodes(const std::string& node)
+	{
+		std::vector<int> nodes;
+		NodeCluster* nodeCluster = this->GetCluster(node);
+		if (nodeCluster == nullptr)
+		{
+			return nodes;
+		}
+		const std::vector<int>& list = nodeCluster->GetNodes();
+		nodes.insert(nodes.end(), list.begin(), list.end());
+		return nodes;
 	}
 
 	bool NodeComponent::AddCluster(const std::string& name, int id)
@@ -324,8 +333,8 @@ namespace acs
 		}
 		std::string name(node->Name());
 		this->AddCluster(node->Name(), id);
+		LOG_DEBUG("add node => {}", node->ToString())
 		this->mActors.emplace_back(std::move(node));
-		LOG_DEBUG("[{}] add node => name:{} id:{}", this->mActors.size(), name, id)
 		return true;
 	}
 }

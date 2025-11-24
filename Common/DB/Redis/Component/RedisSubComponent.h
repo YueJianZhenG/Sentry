@@ -4,8 +4,8 @@
 
 #ifndef APP_REDISSUBCOMPONENT_H
 #define APP_REDISSUBCOMPONENT_H
-#include"Redis/Client/RedisClient.h"
-#include"Redis/Config/RedisConfig.h"
+#include "Redis/Client/RedisClient.h"
+#include "Redis/Config/RedisConfig.h"
 #include "Rpc/Component/RpcComponent.h"
 
 
@@ -27,13 +27,11 @@ namespace acs
 		void OnConnectOK(int id) final;
 		void OnClientError(int id, int code) final;
 		void OnSecondUpdate(int tick) noexcept final;
-		void OnNotFindResponse(int key, std::unique_ptr<redis::Response> message) final;
 		void OnMessage(int, redis::Request *request, redis::Response *response) noexcept final;
 	private:
 		bool mIsSend; //是否正在发送
 		redis::Cluster mConfig;
 		class TimerComponent * mTimer;
-		class DispatchComponent * mDispatch;
 		std::shared_ptr<redis::Client> mClient;
 		std::unordered_set<std::string> mChannels;
 		std::queue<std::unique_ptr<redis::Request>> mMessages;

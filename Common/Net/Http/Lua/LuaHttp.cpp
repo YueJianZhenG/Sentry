@@ -26,7 +26,7 @@ namespace lua
 		{
 			return 0;
 		}
-		std::string value;
+		static std::string value;
 		if(!head->Get(key, value))
 		{
 			return 0;
@@ -37,25 +37,20 @@ namespace lua
 
 	int HttpClient::Do(lua_State* lua)
 	{
-		static HttpComponent* httpComponent = nullptr;
-		if (httpComponent == nullptr)
-		{
-			httpComponent = App::Get<HttpComponent>();
-			if (httpComponent == nullptr)
-			{
-				luaL_error(lua, "HttpComponent Is Null");
-				return 0;
-			}
-		}
 		size_t size = 0;
+		static std::string url;
 		const char * method = luaL_checkstring(lua, 1);
-		const char * url = luaL_checklstring(lua, 2, &size);
+		const char * str = luaL_checklstring(lua, 2, &size);
+		static HttpComponent* httpComponent = App::Get<HttpComponent>();
+
+		url.assign(str, size);
 		std::unique_ptr<http::Request> request = std::make_unique<http::Request>(method);
-		if(!request->SetUrl(std::string(url, size)))
+		if(!request->SetUrl(url))
 		{
-			luaL_error(lua, "parse get url : [%s] failure", url);
+			LOG_ERROR("parse get url : [{}] failure", url)
 			return 0;
 		}
+		static std::string key;
 		if(lua_istable(lua, 3))
 		{
 			lua_pushnil(lua);
@@ -65,20 +60,27 @@ namespace lua
 				{
 					case LUA_TSTRING:
 					{
-						const char* key = lua_tostring(lua, -2);
-						const char * val = lua_tostring(lua, -1);
-						request->Header().Add(key, val);
-					}
+						static std::string value;
+						size_t count1 = 0, count2 = 0;
+						const char* k = lua_tolstring(lua, -2, &count1);
+						const char * v = lua_tolstring(lua, -1, &count2);
+						key.assign(k, count1);
+						value.assign(v, count2);
+						request->Header().Add(key, value);
 						break;
+					}
 					case LUA_TNUMBER:
 					{
-						const char* key = lua_tostring(lua, -2);
+						size_t count1 = 0;
+						const char* k = lua_tolstring(lua, -2, &count1);
+
+						key.assign(k, count1);
 						long long val = lua_tointeger(lua, -1);
 						request->Header().Add(key, (int)val);
-					}
 						break;
+					}
 					default:
-						luaL_error(lua, "unknown http head type");
+						LOG_ERROR("unknown http head type");
 						return 0;
 				}
 				lua_pop(lua, 1);
@@ -87,7 +89,7 @@ namespace lua
 
 		if (lua_isstring(lua, 4))
 		{
-			const char *data = luaL_checklstring(lua, 4, &size);
+			const char *data = lua_tolstring(lua, 4, &size);
 			{
 				std::string contentType = http::Header::TEXT;
 				request->Header().Del(http::Header::ContentType, contentType);
@@ -99,90 +101,67 @@ namespace lua
 		}
 		else if (lua_istable(lua, 4))
 		{
-			size_t count = 0;
-			std::unique_ptr<char> json;
-			if(!lua::yyjson::read(lua, 4, json, count))
+			wrap::string<true> json;
+			if(!lua::yyjson::read(lua, 4, json))
 			{
 				return false;
 			}
-			request->SetContent(http::Header::JSON, json.get(), count);
+			request->SetContent(http::Header::JSON, json.c_str(), json.size());
 		}
 		int taskId = 0;
 		lua_pushthread(lua);
-		std::unique_ptr<http::Response> response = std::make_unique<http::Response>();
-
-		httpComponent->Send(request, response, taskId);
+		httpComponent->Send(request, taskId);
 		return httpComponent->AddTask(new LuaHttpRequestTask(taskId, lua))->Await();
 	}
 
-    int HttpClient::Get(lua_State* lua)
+    int HttpClient::Get(lua_State* L)
 	{
-		static HttpComponent* httpComponent = nullptr;
-		if (httpComponent == nullptr)
-		{
-			httpComponent = App::Get<HttpComponent>();
-			if (httpComponent == nullptr)
-			{
-				luaL_error(lua, "HttpComponent Is Null");
-				return 0;
-			}
-		}
-
 		size_t size = 0;
-		lua_pushthread(lua);
-		const char* str = luaL_checklstring(lua, 1, &size);
-		std::unique_ptr<http::Response> response = std::make_unique<http::Response>();
+		static std::string url;
+		const char* str = luaL_checklstring(L, 1, &size);
+		static HttpComponent* httpComponent = App::Get<HttpComponent>();
+
+		url.assign(str, size);
 		std::unique_ptr<http::Request> request = std::make_unique<http::Request>("GET");
-		if (!request->SetUrl(std::string(str, size)))
+		if (!request->SetUrl(url))
 		{
-			luaL_error(lua, "parse get url : [%s] failure", str);
+			LOG_ERROR("parse get url : [{}] failure", str);
 			return 0;
 		}
 		int taskId = 0;
-		httpComponent->Send(request, response, taskId);
-		return httpComponent->AddTask(new LuaHttpRequestTask(taskId, lua))->Await();
+		lua_pushthread(L);
+		httpComponent->Send(request, taskId);
+		return httpComponent->AddTask(new LuaHttpRequestTask(taskId, L))->Await();
 	}
 
-	int HttpClient::Post(lua_State* lua)
+	int HttpClient::Post(lua_State* L)
     {
-		static HttpComponent* httpComponent = nullptr;
-		if (httpComponent == nullptr)
-		{
-			httpComponent = App::Get<HttpComponent>();
-			if (httpComponent == nullptr)
-			{
-				luaL_error(lua, "HttpComponent Is Null");
-				return 0;
-			}
-		}
-        size_t size = 0;
-		lua_pushthread(lua);
-		const char* str = luaL_checklstring(lua, 1, &size);
-		const std::string url(str, size);
+		size_t size = 0;
+		static std::string url;
+		const char* str = luaL_checklstring(L, 1, &size);
+		static HttpComponent* httpComponent = App::Get<HttpComponent>();
+
+		url.assign(str, size);
         std::unique_ptr<http::Request> request = std::make_unique<http::Request>("POST");
         if (!request->SetUrl(url))
         {
-            luaL_error(lua, "parse post url : [%s] failure", str);
+            luaL_error(L, "parse post url : [%s] failure", str);
             return 0;
         }
-//#ifdef __DEBUG__
-//		LOG_DEBUG("[http POST] url = {}", url);
-//#endif
 
-        if (lua_isstring(lua, 2))
+        if (lua_isstring(L, 2))
         {
-            const char *data = luaL_checklstring(lua, 2, &size);
+            const char *data = lua_tolstring(L, 2, &size);
             request->SetContent(http::Header::TEXT, data, size);
         }
-        else if (lua_istable(lua, 2))
+        else if (lua_istable(L, 2))
         {
-			size_t count = 0;
-			std::unique_ptr<char> json;
-			if(!lua::yyjson::read(lua, 2, json, count))
+        	wrap::string<true> json;
+			if(!lua::yyjson::read(L, 2, json))
 			{
 				return false;
 			}
-			request->SetContent(http::Header::JSON, json.get(), count);
+			request->SetContent(http::Header::JSON, json.c_str(), json.size());
 		}
         else
         {
@@ -190,30 +169,26 @@ namespace lua
 			LOG_ERROR("[HTTP POST] {} data is nil", url);
             return 0;
         }
-        std::unique_ptr<http::Response> response = std::make_unique<http::Response>();
-#ifdef __DEBUG__
-        //LOG_DEBUG("[http POST] url = " << std::string(str, size) << " data = " << postRequest->Content());
-#endif
+
 		int taskId = 0;
-		httpComponent->Send(request, response, taskId);
-        return httpComponent->AddTask(new LuaHttpRequestTask(taskId, lua))->Await();
+		lua_pushthread(L);
+		httpComponent->Send(request, taskId);
+        return httpComponent->AddTask(new LuaHttpRequestTask(taskId, L))->Await();
     }
 
 	int HttpClient::Upload(lua_State* lua)
 	{
-		HttpComponent* httpComponent = App::Get<HttpComponent>();
-		if (httpComponent == nullptr)
-		{
-			luaL_error(lua, "HttpComponent Is Null");
-			return 0;
-		}
 		size_t size, size2 = 0;
-		const char* url = luaL_checklstring(lua, 1, &size);
+		static std::string url;
+		const char* str1 = luaL_checklstring(lua, 1, &size);
 		const char* path = luaL_checklstring(lua, 2, &size2);
+		static HttpComponent* httpComponent = App::Get<HttpComponent>();
+
+		url.assign(str1, size);
 		std::unique_ptr<http::Request> request = std::make_unique<http::Request>("POST");
-		if (!request->SetUrl(std::string(url, size)))
+		if (!request->SetUrl(url))
 		{
-			luaL_error(lua, "parse post url : [%s] failure", url);
+			LOG_ERROR("parse post url : [{}] failure", url);
 			return 0;
 		}
 		std::string type = http::Header::Bin;
@@ -225,41 +200,40 @@ namespace lua
 		{
 			if(!fileData->OpenFile(path, type))
 			{
-				luaL_error(lua, "open file error : %s", path);
+				LOG_ERROR("open file error : {}", path);
 				return 0;
 			}
 		}
-		request->SetBody(std::move(fileData));
+		int rpcId = 0;
+		request->SetContent(std::move(fileData));
 		std::unique_ptr<http::Response> response = std::make_unique<http::Response>();
-
-		int taskId = 0;
-		lua_pushthread(lua);
-		//request->Header().SetKeepAlive(false);
-		httpComponent->Send(request, response, taskId);
-		return httpComponent->AddTask(new LuaHttpRequestTask(taskId, lua))->Await();
+		{
+			lua_pushthread(lua);
+			//request->Header().SetKeepAlive(false);
+			httpComponent->Send(request, response, rpcId);
+		}
+		return httpComponent->AddTask(new LuaHttpRequestTask(rpcId, lua))->Await();
 	}
 
 	int HttpClient::Download(lua_State* lua)
 	{
-        HttpComponent* httpComponent = App::Get<HttpComponent>();
-        if (httpComponent == nullptr)
-        {
-            luaL_error(lua, "HttpComponent Is Null");
-            return 0;
-        }
-        size_t size, size2 = 0;
-        const char* url = luaL_checklstring(lua, 1, &size);
-        const char* path = luaL_checklstring(lua, 2, &size2);
+		size_t size, size2 = 0;
+		static std::string url;
+		const char* str = luaL_checklstring(lua, 1, &size);
+		const char* path = luaL_checklstring(lua, 2, &size2);
+        static HttpComponent* httpComponent = App::Get<HttpComponent>();
+
+		url.assign(str, size);
         std::unique_ptr<http::Request> request = std::make_unique<http::Request>("GET");
 		std::unique_ptr<http::Response> response = std::make_unique<http::Response>();
 		if(!response->OpenOrCreateFile(path))
 		{
-			luaL_error(lua, "open or create fail error : %s", path);
+			LOG_ERROR("open or create fail error : {}", path);
 			return 0;
 		}
-		if (!request->SetUrl(std::string(url, size)))
+		if (!request->SetUrl(url))
         {
-            luaL_error(lua, "parse post url : [%s] failure", url);
+			LOG_ERROR("parse post url : [{}] failure", url);
             return 0;
         }
 

@@ -18,8 +18,9 @@ namespace acs
 	public:
 		explicit MongoTask(int taskId);
     public:
+		void OnTimeout() final;
 		inline std::unique_ptr<mongo::Response> Await();
-		inline void OnResponse(std::unique_ptr<mongo::Response> response) noexcept final;
+		inline void OnResponse(std::unique_ptr<mongo::Response>& response) noexcept final;
 	private:
 		std::unique_ptr<mongo::Response> mMessage;
 	};
@@ -30,10 +31,27 @@ namespace acs
 		return std::move(this->mMessage);
 	}
 
-	inline void MongoTask::OnResponse(std::unique_ptr<mongo::Response> response) noexcept
+	inline void MongoTask::OnResponse(std::unique_ptr<mongo::Response>& response) noexcept
 	{
 		this->mMessage = std::move(response);
 		this->ResumeTask();
+	}
+
+	inline void MongoTask::OnTimeout()
+	{
+		bson::w::Document document;
+		document.Add("ok", "0.0");
+		document.Add("errmsg", "time out");
+
+		int count = 0;
+		const char * str = document.Serialize(count);
+		this->mMessage->buffer = std::make_unique<char[]>(count);
+		for(int index = 0; index < count; index++)
+		{
+			this->mMessage->buffer[index] = str[index];
+		}
+		this->mMessage = std::make_unique<mongo::Response>("");
+		this->mMessage->document.Init(this->mMessage->buffer.get());
 	}
 }
 
@@ -46,7 +64,8 @@ namespace acs
 		~LuaMongoTask() final;
 	public:
 		int Await() noexcept;
-		void OnResponse(std::unique_ptr<mongo::Response> response) noexcept final;
+		void OnTimeout() final;
+		void OnResponse(std::unique_ptr<mongo::Response>& response) noexcept final;
 	private:
 		int mRef;
 		lua_State * mLua;

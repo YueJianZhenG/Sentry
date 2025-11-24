@@ -4,7 +4,7 @@
 		"async": true,
 		"auth": false,
 		"Record" : true,
-		"permission": 100,
+		"access": 100,
 		"desc": "备份一个表的数据",
 		"bind": "MysqlBackup.Backup",
 		"request" : {
@@ -17,7 +17,7 @@
 		"async": true,
 		"auth": false,
 		"Record" : true,
-		"permission": 100,
+		"access": 100,
 		"desc": "恢复文件夹数据到一个库",
 		"bind": "MysqlBackup.Recover",
 		"request" : {
@@ -29,7 +29,7 @@
 		"type": "GET",
 		"async": true,
 		"auth": true,
-		"permission": 100,
+		"access": 100,
 		"Record" : true,
 		"desc": "压缩备份数据并上传阿里云",
 		"bind": "MysqlBackup.Upload",

@@ -52,4 +52,9 @@ function Log.Fatal(fmt, ...)
     logger.Output(console.LogFatal, message)
 end
 
+function Log.Custom(name, fmt, ...)
+    local message = string_format(fmt, ...)
+    logger.Custom(name, message)
+end
+
 return Log

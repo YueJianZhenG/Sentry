@@ -41,7 +41,7 @@ struct TableStruct_c2s_2fc2s_2eproto {
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
   static const ::google::protobuf::internal::AuxillaryParseTableField aux[]
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
-  static const ::google::protobuf::internal::ParseTable schema[9]
+  static const ::google::protobuf::internal::ParseTable schema[15]
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
   static const ::google::protobuf::internal::FieldMetadata field_metadata[];
   static const ::google::protobuf::internal::SerializationTable serialization_table[];
@@ -61,6 +61,24 @@ extern chat_noticeDefaultTypeInternal _chat_notice_default_instance_;
 class chat_request;
 class chat_requestDefaultTypeInternal;
 extern chat_requestDefaultTypeInternal _chat_request_default_instance_;
+class frame;
+class frameDefaultTypeInternal;
+extern frameDefaultTypeInternal _frame_default_instance_;
+class frame_broadcast;
+class frame_broadcastDefaultTypeInternal;
+extern frame_broadcastDefaultTypeInternal _frame_broadcast_default_instance_;
+class frame_input;
+class frame_inputDefaultTypeInternal;
+extern frame_inputDefaultTypeInternal _frame_input_default_instance_;
+class frame_request;
+class frame_requestDefaultTypeInternal;
+extern frame_requestDefaultTypeInternal _frame_request_default_instance_;
+class frame_vec2;
+class frame_vec2DefaultTypeInternal;
+extern frame_vec2DefaultTypeInternal _frame_vec2_default_instance_;
+class frame_vec3;
+class frame_vec3DefaultTypeInternal;
+extern frame_vec3DefaultTypeInternal _frame_vec3_default_instance_;
 class item;
 class itemDefaultTypeInternal;
 extern itemDefaultTypeInternal _item_default_instance_;
@@ -83,6 +101,12 @@ template<> ::c2s::ServerInfo* Arena::CreateMaybeMessage<::c2s::ServerInfo>(Arena
 template<> ::c2s::chat* Arena::CreateMaybeMessage<::c2s::chat>(Arena*);
 template<> ::c2s::chat_notice* Arena::CreateMaybeMessage<::c2s::chat_notice>(Arena*);
 template<> ::c2s::chat_request* Arena::CreateMaybeMessage<::c2s::chat_request>(Arena*);
+template<> ::c2s::frame* Arena::CreateMaybeMessage<::c2s::frame>(Arena*);
+template<> ::c2s::frame_broadcast* Arena::CreateMaybeMessage<::c2s::frame_broadcast>(Arena*);
+template<> ::c2s::frame_input* Arena::CreateMaybeMessage<::c2s::frame_input>(Arena*);
+template<> ::c2s::frame_request* Arena::CreateMaybeMessage<::c2s::frame_request>(Arena*);
+template<> ::c2s::frame_vec2* Arena::CreateMaybeMessage<::c2s::frame_vec2>(Arena*);
+template<> ::c2s::frame_vec3* Arena::CreateMaybeMessage<::c2s::frame_vec3>(Arena*);
 template<> ::c2s::item* Arena::CreateMaybeMessage<::c2s::item>(Arena*);
 template<> ::c2s::item_EquipInfo* Arena::CreateMaybeMessage<::c2s::item_EquipInfo>(Arena*);
 template<> ::c2s::item_ItemInfo* Arena::CreateMaybeMessage<::c2s::item_ItemInfo>(Arena*);
@@ -1240,6 +1264,727 @@ class item :
   mutable ::google::protobuf::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_c2s_2fc2s_2eproto;
 };
+// -------------------------------------------------------------------
+
+class frame_vec2 :
+    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:c2s.frame.vec2) */ {
+ public:
+  frame_vec2();
+  virtual ~frame_vec2();
+
+  frame_vec2(const frame_vec2& from);
+
+  inline frame_vec2& operator=(const frame_vec2& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  #if LANG_CXX11
+  frame_vec2(frame_vec2&& from) noexcept
+    : frame_vec2() {
+    *this = ::std::move(from);
+  }
+
+  inline frame_vec2& operator=(frame_vec2&& from) noexcept {
+    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+  #endif
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return default_instance().GetDescriptor();
+  }
+  static const frame_vec2& default_instance();
+
+  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
+  static inline const frame_vec2* internal_default_instance() {
+    return reinterpret_cast<const frame_vec2*>(
+               &_frame_vec2_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    9;
+
+  void Swap(frame_vec2* other);
+  friend void swap(frame_vec2& a, frame_vec2& b) {
+    a.Swap(&b);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline frame_vec2* New() const final {
+    return CreateMaybeMessage<frame_vec2>(nullptr);
+  }
+
+  frame_vec2* New(::google::protobuf::Arena* arena) const final {
+    return CreateMaybeMessage<frame_vec2>(arena);
+  }
+  void CopyFrom(const ::google::protobuf::Message& from) final;
+  void MergeFrom(const ::google::protobuf::Message& from) final;
+  void CopyFrom(const frame_vec2& from);
+  void MergeFrom(const frame_vec2& from);
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  #if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  static const char* _InternalParse(const char* begin, const char* end, void* object, ::google::protobuf::internal::ParseContext* ctx);
+  ::google::protobuf::internal::ParseFunc _ParseFunc() const final { return _InternalParse; }
+  #else
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input) final;
+  #endif  // GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const final;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      ::google::protobuf::uint8* target) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(frame_vec2* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return nullptr;
+  }
+  inline void* MaybeArenaPtr() const {
+    return nullptr;
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // float x = 1;
+  void clear_x();
+  static const int kXFieldNumber = 1;
+  float x() const;
+  void set_x(float value);
+
+  // float y = 2;
+  void clear_y();
+  static const int kYFieldNumber = 2;
+  float y() const;
+  void set_y(float value);
+
+  // @@protoc_insertion_point(class_scope:c2s.frame.vec2)
+ private:
+  class HasBitSetters;
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  float x_;
+  float y_;
+  mutable ::google::protobuf::internal::CachedSize _cached_size_;
+  friend struct ::TableStruct_c2s_2fc2s_2eproto;
+};
+// -------------------------------------------------------------------
+
+class frame_vec3 :
+    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:c2s.frame.vec3) */ {
+ public:
+  frame_vec3();
+  virtual ~frame_vec3();
+
+  frame_vec3(const frame_vec3& from);
+
+  inline frame_vec3& operator=(const frame_vec3& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  #if LANG_CXX11
+  frame_vec3(frame_vec3&& from) noexcept
+    : frame_vec3() {
+    *this = ::std::move(from);
+  }
+
+  inline frame_vec3& operator=(frame_vec3&& from) noexcept {
+    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+  #endif
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return default_instance().GetDescriptor();
+  }
+  static const frame_vec3& default_instance();
+
+  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
+  static inline const frame_vec3* internal_default_instance() {
+    return reinterpret_cast<const frame_vec3*>(
+               &_frame_vec3_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    10;
+
+  void Swap(frame_vec3* other);
+  friend void swap(frame_vec3& a, frame_vec3& b) {
+    a.Swap(&b);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline frame_vec3* New() const final {
+    return CreateMaybeMessage<frame_vec3>(nullptr);
+  }
+
+  frame_vec3* New(::google::protobuf::Arena* arena) const final {
+    return CreateMaybeMessage<frame_vec3>(arena);
+  }
+  void CopyFrom(const ::google::protobuf::Message& from) final;
+  void MergeFrom(const ::google::protobuf::Message& from) final;
+  void CopyFrom(const frame_vec3& from);
+  void MergeFrom(const frame_vec3& from);
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  #if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  static const char* _InternalParse(const char* begin, const char* end, void* object, ::google::protobuf::internal::ParseContext* ctx);
+  ::google::protobuf::internal::ParseFunc _ParseFunc() const final { return _InternalParse; }
+  #else
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input) final;
+  #endif  // GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const final;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      ::google::protobuf::uint8* target) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(frame_vec3* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return nullptr;
+  }
+  inline void* MaybeArenaPtr() const {
+    return nullptr;
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // float x = 1;
+  void clear_x();
+  static const int kXFieldNumber = 1;
+  float x() const;
+  void set_x(float value);
+
+  // float y = 2;
+  void clear_y();
+  static const int kYFieldNumber = 2;
+  float y() const;
+  void set_y(float value);
+
+  // float z = 3;
+  void clear_z();
+  static const int kZFieldNumber = 3;
+  float z() const;
+  void set_z(float value);
+
+  // @@protoc_insertion_point(class_scope:c2s.frame.vec3)
+ private:
+  class HasBitSetters;
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  float x_;
+  float y_;
+  float z_;
+  mutable ::google::protobuf::internal::CachedSize _cached_size_;
+  friend struct ::TableStruct_c2s_2fc2s_2eproto;
+};
+// -------------------------------------------------------------------
+
+class frame_input :
+    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:c2s.frame.input) */ {
+ public:
+  frame_input();
+  virtual ~frame_input();
+
+  frame_input(const frame_input& from);
+
+  inline frame_input& operator=(const frame_input& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  #if LANG_CXX11
+  frame_input(frame_input&& from) noexcept
+    : frame_input() {
+    *this = ::std::move(from);
+  }
+
+  inline frame_input& operator=(frame_input&& from) noexcept {
+    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+  #endif
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return default_instance().GetDescriptor();
+  }
+  static const frame_input& default_instance();
+
+  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
+  static inline const frame_input* internal_default_instance() {
+    return reinterpret_cast<const frame_input*>(
+               &_frame_input_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    11;
+
+  void Swap(frame_input* other);
+  friend void swap(frame_input& a, frame_input& b) {
+    a.Swap(&b);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline frame_input* New() const final {
+    return CreateMaybeMessage<frame_input>(nullptr);
+  }
+
+  frame_input* New(::google::protobuf::Arena* arena) const final {
+    return CreateMaybeMessage<frame_input>(arena);
+  }
+  void CopyFrom(const ::google::protobuf::Message& from) final;
+  void MergeFrom(const ::google::protobuf::Message& from) final;
+  void CopyFrom(const frame_input& from);
+  void MergeFrom(const frame_input& from);
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  #if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  static const char* _InternalParse(const char* begin, const char* end, void* object, ::google::protobuf::internal::ParseContext* ctx);
+  ::google::protobuf::internal::ParseFunc _ParseFunc() const final { return _InternalParse; }
+  #else
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input) final;
+  #endif  // GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const final;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      ::google::protobuf::uint8* target) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(frame_input* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return nullptr;
+  }
+  inline void* MaybeArenaPtr() const {
+    return nullptr;
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // .c2s.frame.vec2 pos = 1;
+  bool has_pos() const;
+  void clear_pos();
+  static const int kPosFieldNumber = 1;
+  const ::c2s::frame_vec2& pos() const;
+  ::c2s::frame_vec2* release_pos();
+  ::c2s::frame_vec2* mutable_pos();
+  void set_allocated_pos(::c2s::frame_vec2* pos);
+
+  // int32 skill_id = 2;
+  void clear_skill_id();
+  static const int kSkillIdFieldNumber = 2;
+  ::google::protobuf::int32 skill_id() const;
+  void set_skill_id(::google::protobuf::int32 value);
+
+  // @@protoc_insertion_point(class_scope:c2s.frame.input)
+ private:
+  class HasBitSetters;
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  ::c2s::frame_vec2* pos_;
+  ::google::protobuf::int32 skill_id_;
+  mutable ::google::protobuf::internal::CachedSize _cached_size_;
+  friend struct ::TableStruct_c2s_2fc2s_2eproto;
+};
+// -------------------------------------------------------------------
+
+class frame_request :
+    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:c2s.frame.request) */ {
+ public:
+  frame_request();
+  virtual ~frame_request();
+
+  frame_request(const frame_request& from);
+
+  inline frame_request& operator=(const frame_request& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  #if LANG_CXX11
+  frame_request(frame_request&& from) noexcept
+    : frame_request() {
+    *this = ::std::move(from);
+  }
+
+  inline frame_request& operator=(frame_request&& from) noexcept {
+    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+  #endif
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return default_instance().GetDescriptor();
+  }
+  static const frame_request& default_instance();
+
+  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
+  static inline const frame_request* internal_default_instance() {
+    return reinterpret_cast<const frame_request*>(
+               &_frame_request_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    12;
+
+  void Swap(frame_request* other);
+  friend void swap(frame_request& a, frame_request& b) {
+    a.Swap(&b);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline frame_request* New() const final {
+    return CreateMaybeMessage<frame_request>(nullptr);
+  }
+
+  frame_request* New(::google::protobuf::Arena* arena) const final {
+    return CreateMaybeMessage<frame_request>(arena);
+  }
+  void CopyFrom(const ::google::protobuf::Message& from) final;
+  void MergeFrom(const ::google::protobuf::Message& from) final;
+  void CopyFrom(const frame_request& from);
+  void MergeFrom(const frame_request& from);
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  #if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  static const char* _InternalParse(const char* begin, const char* end, void* object, ::google::protobuf::internal::ParseContext* ctx);
+  ::google::protobuf::internal::ParseFunc _ParseFunc() const final { return _InternalParse; }
+  #else
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input) final;
+  #endif  // GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const final;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      ::google::protobuf::uint8* target) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(frame_request* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return nullptr;
+  }
+  inline void* MaybeArenaPtr() const {
+    return nullptr;
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // repeated .c2s.frame.input inputs = 2;
+  int inputs_size() const;
+  void clear_inputs();
+  static const int kInputsFieldNumber = 2;
+  ::c2s::frame_input* mutable_inputs(int index);
+  ::google::protobuf::RepeatedPtrField< ::c2s::frame_input >*
+      mutable_inputs();
+  const ::c2s::frame_input& inputs(int index) const;
+  ::c2s::frame_input* add_inputs();
+  const ::google::protobuf::RepeatedPtrField< ::c2s::frame_input >&
+      inputs() const;
+
+  // int64 unit_id = 1;
+  void clear_unit_id();
+  static const int kUnitIdFieldNumber = 1;
+  ::google::protobuf::int64 unit_id() const;
+  void set_unit_id(::google::protobuf::int64 value);
+
+  // @@protoc_insertion_point(class_scope:c2s.frame.request)
+ private:
+  class HasBitSetters;
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  ::google::protobuf::RepeatedPtrField< ::c2s::frame_input > inputs_;
+  ::google::protobuf::int64 unit_id_;
+  mutable ::google::protobuf::internal::CachedSize _cached_size_;
+  friend struct ::TableStruct_c2s_2fc2s_2eproto;
+};
+// -------------------------------------------------------------------
+
+class frame_broadcast :
+    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:c2s.frame.broadcast) */ {
+ public:
+  frame_broadcast();
+  virtual ~frame_broadcast();
+
+  frame_broadcast(const frame_broadcast& from);
+
+  inline frame_broadcast& operator=(const frame_broadcast& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  #if LANG_CXX11
+  frame_broadcast(frame_broadcast&& from) noexcept
+    : frame_broadcast() {
+    *this = ::std::move(from);
+  }
+
+  inline frame_broadcast& operator=(frame_broadcast&& from) noexcept {
+    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+  #endif
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return default_instance().GetDescriptor();
+  }
+  static const frame_broadcast& default_instance();
+
+  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
+  static inline const frame_broadcast* internal_default_instance() {
+    return reinterpret_cast<const frame_broadcast*>(
+               &_frame_broadcast_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    13;
+
+  void Swap(frame_broadcast* other);
+  friend void swap(frame_broadcast& a, frame_broadcast& b) {
+    a.Swap(&b);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline frame_broadcast* New() const final {
+    return CreateMaybeMessage<frame_broadcast>(nullptr);
+  }
+
+  frame_broadcast* New(::google::protobuf::Arena* arena) const final {
+    return CreateMaybeMessage<frame_broadcast>(arena);
+  }
+  void CopyFrom(const ::google::protobuf::Message& from) final;
+  void MergeFrom(const ::google::protobuf::Message& from) final;
+  void CopyFrom(const frame_broadcast& from);
+  void MergeFrom(const frame_broadcast& from);
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  #if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  static const char* _InternalParse(const char* begin, const char* end, void* object, ::google::protobuf::internal::ParseContext* ctx);
+  ::google::protobuf::internal::ParseFunc _ParseFunc() const final { return _InternalParse; }
+  #else
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input) final;
+  #endif  // GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const final;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      ::google::protobuf::uint8* target) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(frame_broadcast* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return nullptr;
+  }
+  inline void* MaybeArenaPtr() const {
+    return nullptr;
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // repeated .c2s.frame.request messages = 1;
+  int messages_size() const;
+  void clear_messages();
+  static const int kMessagesFieldNumber = 1;
+  ::c2s::frame_request* mutable_messages(int index);
+  ::google::protobuf::RepeatedPtrField< ::c2s::frame_request >*
+      mutable_messages();
+  const ::c2s::frame_request& messages(int index) const;
+  ::c2s::frame_request* add_messages();
+  const ::google::protobuf::RepeatedPtrField< ::c2s::frame_request >&
+      messages() const;
+
+  // @@protoc_insertion_point(class_scope:c2s.frame.broadcast)
+ private:
+  class HasBitSetters;
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  ::google::protobuf::RepeatedPtrField< ::c2s::frame_request > messages_;
+  mutable ::google::protobuf::internal::CachedSize _cached_size_;
+  friend struct ::TableStruct_c2s_2fc2s_2eproto;
+};
+// -------------------------------------------------------------------
+
+class frame :
+    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:c2s.frame) */ {
+ public:
+  frame();
+  virtual ~frame();
+
+  frame(const frame& from);
+
+  inline frame& operator=(const frame& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  #if LANG_CXX11
+  frame(frame&& from) noexcept
+    : frame() {
+    *this = ::std::move(from);
+  }
+
+  inline frame& operator=(frame&& from) noexcept {
+    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+  #endif
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return default_instance().GetDescriptor();
+  }
+  static const frame& default_instance();
+
+  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
+  static inline const frame* internal_default_instance() {
+    return reinterpret_cast<const frame*>(
+               &_frame_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    14;
+
+  void Swap(frame* other);
+  friend void swap(frame& a, frame& b) {
+    a.Swap(&b);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline frame* New() const final {
+    return CreateMaybeMessage<frame>(nullptr);
+  }
+
+  frame* New(::google::protobuf::Arena* arena) const final {
+    return CreateMaybeMessage<frame>(arena);
+  }
+  void CopyFrom(const ::google::protobuf::Message& from) final;
+  void MergeFrom(const ::google::protobuf::Message& from) final;
+  void CopyFrom(const frame& from);
+  void MergeFrom(const frame& from);
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  #if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  static const char* _InternalParse(const char* begin, const char* end, void* object, ::google::protobuf::internal::ParseContext* ctx);
+  ::google::protobuf::internal::ParseFunc _ParseFunc() const final { return _InternalParse; }
+  #else
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input) final;
+  #endif  // GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const final;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      ::google::protobuf::uint8* target) const final;
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(frame* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return nullptr;
+  }
+  inline void* MaybeArenaPtr() const {
+    return nullptr;
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  typedef frame_vec2 vec2;
+  typedef frame_vec3 vec3;
+  typedef frame_input input;
+  typedef frame_request request;
+  typedef frame_broadcast broadcast;
+
+  // accessors -------------------------------------------------------
+
+  // @@protoc_insertion_point(class_scope:c2s.frame)
+ private:
+  class HasBitSetters;
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  mutable ::google::protobuf::internal::CachedSize _cached_size_;
+  friend struct ::TableStruct_c2s_2fc2s_2eproto;
+};
 // ===================================================================
 
 
@@ -1784,9 +2529,254 @@ item_ItemList::list() const {
 
 // item
 
+// -------------------------------------------------------------------
+
+// frame_vec2
+
+// float x = 1;
+inline void frame_vec2::clear_x() {
+  x_ = 0;
+}
+inline float frame_vec2::x() const {
+  // @@protoc_insertion_point(field_get:c2s.frame.vec2.x)
+  return x_;
+}
+inline void frame_vec2::set_x(float value) {
+  
+  x_ = value;
+  // @@protoc_insertion_point(field_set:c2s.frame.vec2.x)
+}
+
+// float y = 2;
+inline void frame_vec2::clear_y() {
+  y_ = 0;
+}
+inline float frame_vec2::y() const {
+  // @@protoc_insertion_point(field_get:c2s.frame.vec2.y)
+  return y_;
+}
+inline void frame_vec2::set_y(float value) {
+  
+  y_ = value;
+  // @@protoc_insertion_point(field_set:c2s.frame.vec2.y)
+}
+
+// -------------------------------------------------------------------
+
+// frame_vec3
+
+// float x = 1;
+inline void frame_vec3::clear_x() {
+  x_ = 0;
+}
+inline float frame_vec3::x() const {
+  // @@protoc_insertion_point(field_get:c2s.frame.vec3.x)
+  return x_;
+}
+inline void frame_vec3::set_x(float value) {
+  
+  x_ = value;
+  // @@protoc_insertion_point(field_set:c2s.frame.vec3.x)
+}
+
+// float y = 2;
+inline void frame_vec3::clear_y() {
+  y_ = 0;
+}
+inline float frame_vec3::y() const {
+  // @@protoc_insertion_point(field_get:c2s.frame.vec3.y)
+  return y_;
+}
+inline void frame_vec3::set_y(float value) {
+  
+  y_ = value;
+  // @@protoc_insertion_point(field_set:c2s.frame.vec3.y)
+}
+
+// float z = 3;
+inline void frame_vec3::clear_z() {
+  z_ = 0;
+}
+inline float frame_vec3::z() const {
+  // @@protoc_insertion_point(field_get:c2s.frame.vec3.z)
+  return z_;
+}
+inline void frame_vec3::set_z(float value) {
+  
+  z_ = value;
+  // @@protoc_insertion_point(field_set:c2s.frame.vec3.z)
+}
+
+// -------------------------------------------------------------------
+
+// frame_input
+
+// .c2s.frame.vec2 pos = 1;
+inline bool frame_input::has_pos() const {
+  return this != internal_default_instance() && pos_ != nullptr;
+}
+inline void frame_input::clear_pos() {
+  if (GetArenaNoVirtual() == nullptr && pos_ != nullptr) {
+    delete pos_;
+  }
+  pos_ = nullptr;
+}
+inline const ::c2s::frame_vec2& frame_input::pos() const {
+  const ::c2s::frame_vec2* p = pos_;
+  // @@protoc_insertion_point(field_get:c2s.frame.input.pos)
+  return p != nullptr ? *p : *reinterpret_cast<const ::c2s::frame_vec2*>(
+      &::c2s::_frame_vec2_default_instance_);
+}
+inline ::c2s::frame_vec2* frame_input::release_pos() {
+  // @@protoc_insertion_point(field_release:c2s.frame.input.pos)
+  
+  ::c2s::frame_vec2* temp = pos_;
+  pos_ = nullptr;
+  return temp;
+}
+inline ::c2s::frame_vec2* frame_input::mutable_pos() {
+  
+  if (pos_ == nullptr) {
+    auto* p = CreateMaybeMessage<::c2s::frame_vec2>(GetArenaNoVirtual());
+    pos_ = p;
+  }
+  // @@protoc_insertion_point(field_mutable:c2s.frame.input.pos)
+  return pos_;
+}
+inline void frame_input::set_allocated_pos(::c2s::frame_vec2* pos) {
+  ::google::protobuf::Arena* message_arena = GetArenaNoVirtual();
+  if (message_arena == nullptr) {
+    delete pos_;
+  }
+  if (pos) {
+    ::google::protobuf::Arena* submessage_arena = nullptr;
+    if (message_arena != submessage_arena) {
+      pos = ::google::protobuf::internal::GetOwnedMessage(
+          message_arena, pos, submessage_arena);
+    }
+    
+  } else {
+    
+  }
+  pos_ = pos;
+  // @@protoc_insertion_point(field_set_allocated:c2s.frame.input.pos)
+}
+
+// int32 skill_id = 2;
+inline void frame_input::clear_skill_id() {
+  skill_id_ = 0;
+}
+inline ::google::protobuf::int32 frame_input::skill_id() const {
+  // @@protoc_insertion_point(field_get:c2s.frame.input.skill_id)
+  return skill_id_;
+}
+inline void frame_input::set_skill_id(::google::protobuf::int32 value) {
+  
+  skill_id_ = value;
+  // @@protoc_insertion_point(field_set:c2s.frame.input.skill_id)
+}
+
+// -------------------------------------------------------------------
+
+// frame_request
+
+// int64 unit_id = 1;
+inline void frame_request::clear_unit_id() {
+  unit_id_ = PROTOBUF_LONGLONG(0);
+}
+inline ::google::protobuf::int64 frame_request::unit_id() const {
+  // @@protoc_insertion_point(field_get:c2s.frame.request.unit_id)
+  return unit_id_;
+}
+inline void frame_request::set_unit_id(::google::protobuf::int64 value) {
+  
+  unit_id_ = value;
+  // @@protoc_insertion_point(field_set:c2s.frame.request.unit_id)
+}
+
+// repeated .c2s.frame.input inputs = 2;
+inline int frame_request::inputs_size() const {
+  return inputs_.size();
+}
+inline void frame_request::clear_inputs() {
+  inputs_.Clear();
+}
+inline ::c2s::frame_input* frame_request::mutable_inputs(int index) {
+  // @@protoc_insertion_point(field_mutable:c2s.frame.request.inputs)
+  return inputs_.Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField< ::c2s::frame_input >*
+frame_request::mutable_inputs() {
+  // @@protoc_insertion_point(field_mutable_list:c2s.frame.request.inputs)
+  return &inputs_;
+}
+inline const ::c2s::frame_input& frame_request::inputs(int index) const {
+  // @@protoc_insertion_point(field_get:c2s.frame.request.inputs)
+  return inputs_.Get(index);
+}
+inline ::c2s::frame_input* frame_request::add_inputs() {
+  // @@protoc_insertion_point(field_add:c2s.frame.request.inputs)
+  return inputs_.Add();
+}
+inline const ::google::protobuf::RepeatedPtrField< ::c2s::frame_input >&
+frame_request::inputs() const {
+  // @@protoc_insertion_point(field_list:c2s.frame.request.inputs)
+  return inputs_;
+}
+
+// -------------------------------------------------------------------
+
+// frame_broadcast
+
+// repeated .c2s.frame.request messages = 1;
+inline int frame_broadcast::messages_size() const {
+  return messages_.size();
+}
+inline void frame_broadcast::clear_messages() {
+  messages_.Clear();
+}
+inline ::c2s::frame_request* frame_broadcast::mutable_messages(int index) {
+  // @@protoc_insertion_point(field_mutable:c2s.frame.broadcast.messages)
+  return messages_.Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField< ::c2s::frame_request >*
+frame_broadcast::mutable_messages() {
+  // @@protoc_insertion_point(field_mutable_list:c2s.frame.broadcast.messages)
+  return &messages_;
+}
+inline const ::c2s::frame_request& frame_broadcast::messages(int index) const {
+  // @@protoc_insertion_point(field_get:c2s.frame.broadcast.messages)
+  return messages_.Get(index);
+}
+inline ::c2s::frame_request* frame_broadcast::add_messages() {
+  // @@protoc_insertion_point(field_add:c2s.frame.broadcast.messages)
+  return messages_.Add();
+}
+inline const ::google::protobuf::RepeatedPtrField< ::c2s::frame_request >&
+frame_broadcast::messages() const {
+  // @@protoc_insertion_point(field_list:c2s.frame.broadcast.messages)
+  return messages_;
+}
+
+// -------------------------------------------------------------------
+
+// frame
+
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

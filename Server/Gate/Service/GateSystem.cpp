@@ -5,12 +5,12 @@
 #include "GateSystem.h"
 #include "Entity/Actor/App.h"
 #include "Core/System/System.h"
-#include "Core/Event/IEvent.h"
+#include "Event/Base/IEvent.h"
+#include "Auth/Jwt/Jwt.h"
 #include "Common/Service/LoginSystem.h"
 #include "Cluster/Config/ClusterConfig.h"
 #include "Util/Tools/TimeHelper.h"
 #include "Common/Component/PlayerComponent.h"
-
 namespace acs
 {
     GateSystem::GateSystem()
@@ -53,7 +53,7 @@ namespace acs
 		const std::string & token = request.GetBody();
 
 		json::r::Document document;
-		if(!this->mApp->DecodeSign(token, document))
+		if(!jwt::Decode(token, document))
 		{
 			return XCode::Failure;
 		}
@@ -92,7 +92,7 @@ namespace acs
 			s2s::login::request message;
 			message.set_user_id(userId);
 			message.set_client_id(sockId);
-			player->AddServer(this->mApp->Name(), serverId);
+			player->AddNode(this->mApp->Name(), serverId);
 			// 分配游戏服
 
 			s2s::server::info * serverInfo = message.add_list();
@@ -110,12 +110,12 @@ namespace acs
 					{
 						return XCode::Failure;
 					}
-					player->AddServer(server->Name(), (int)server->GetId());
+					player->AddNode(server->Name(), (int)server->GetId());
 				}
 			}
 		}
 		this->mPlayerMgr->Add(std::move(player));
-		help::PlayerLoginEvent::Trigger(userId, sockId);
+		help::PlayerLoginGateEvent::Trigger(userId, sockId);
 		//LOG_INFO("user:({}) login to gate successful", userId);
 		return XCode::Ok;
 	}
@@ -137,6 +137,7 @@ namespace acs
 			LOG_ERROR("not find player_id:{}", userId);
 			return XCode::NotFindUser;
 		}
+		help::PlayerLogoutGateEvent::Trigger(userId, sockId);
 		return XCode::CloseSocket;
 	}
 }

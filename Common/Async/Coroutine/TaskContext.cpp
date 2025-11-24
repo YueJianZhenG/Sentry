@@ -3,6 +3,10 @@
 #ifndef __OS_WIN__
 #include <sys/mman.h>
 #endif
+
+#ifdef __ENABLE_MI_MALLOC__
+#include "mimalloc.h"
+#endif
 namespace acs
 {
 	TaskContext::TaskContext()
@@ -28,14 +32,10 @@ namespace acs
 	{
 		if (this->stack.p)
 		{
-#ifdef __ENABLE_SHARE_STACK__
-			std::free(this->stack.p);
+#ifdef __ENABLE_MI_MALLOC__
+			mi_free(this->stack.p);
 #else
-#ifndef __OS_WIN__
-			munmap(this->stack.p, this->stack.size);
-#else
-			std::free(this->stack.p);
-#endif
+			free(this->stack.p);
 #endif
 			std::memset(&this->stack, 0, sizeof(Stack));
 		}

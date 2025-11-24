@@ -26,13 +26,16 @@ namespace acs
 		int Call(const std::string & func, const pb::Message & request) const;
 		int Call(const std::string & func, const pb::Message & request, pb::Message * response);
 	public:
+		template<typename T>
+		inline int Call(const std::string & func, std::unique_ptr<T> & response);
+		template<typename T>
+		inline int Call(const std::string & func, const pb::Message & request, std::unique_ptr<T> & response);
+	public:
 		int Send(const std::string & func, const json::w::Document & request);
 		int Call(const std::string & func, const json::w::Document & request);
 		int Call(const std::string & func, std::unique_ptr<json::r::Document> & response);
 		int Call(const std::string & func, const std::string & request, std::unique_ptr<json::r::Document> & response);
 		int Call(const std::string & func, const json::w::Document & request, std::unique_ptr<json::r::Document> & response);
-	public:
-		std::unique_ptr<rpc::Message> CallMethod(const std::string & func, const json::w::Document & request);
 	public:
 		int LuaSend(lua_State * lua, std::unique_ptr<rpc::Message> &) const;
 		int LuaCall(lua_State * lua, std::unique_ptr<rpc::Message> &) const;
@@ -49,6 +52,18 @@ namespace acs
 		class ProtoComponent * mProto;
 		std::unordered_map<std::string, std::string> mAddress;
 	};
+
+	template<typename T>
+	inline int Actor::Call(const std::string& func, std::unique_ptr<T>& response)
+	{
+		return this->Call(func, response.get());
+	}
+
+	template<typename T>
+	int Actor::Call(const std::string& func, const pb::Message& request, std::unique_ptr<T>& response)
+	{
+		return this->Call(func, request, response.get());
+	}
 }
 
 #endif //APP_ACTOR_H

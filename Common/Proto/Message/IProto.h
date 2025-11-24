@@ -43,25 +43,21 @@ namespace tcp
 	{
 	public:
 		IProto();
-
 		virtual ~IProto() = default;
-
 	public:
 		IProto(IProto&&) = delete;
-
 		IProto(const IProto&) = delete;
-
 		IProto(const IProto&&) = delete;
-
 		IProto& operator=(const IProto&) = delete;
-
+#ifdef __DEBUG__
 		long long GetCostTime() const;
+#endif
 	public:
 		virtual void Clear() = 0;
-
 		virtual std::string ToString()
 		{
-			return {};
+			static std::string empty;
+			return empty;
 		}
 		virtual int OnSendMessage(std::ostream& os) = 0; //返回剩余要发送的字节数
 		virtual int OnRecvMessage(std::istream& os, size_t size)
@@ -69,45 +65,10 @@ namespace tcp
 			return 0;
 		};
 	private:
+#ifdef __DEBUG__
 		long long mStartTime;
+#endif
 	};
-
-	class TextProto final : public IProto
-	{
-	public:
-		TextProto() = default;
-		explicit TextProto(std::string  msg) : mMessage(std::move(msg)) { }
-		explicit TextProto(const char * msg, size_t size) : mMessage(msg, size) { }
-	private:
-		inline int OnSendMessage(std::ostream &os) final;
-		inline void Clear() final { this->mMessage.clear(); }
-		inline int OnRecvMessage(std::istream &os, size_t size) final;
-		inline const std::string & GetText() const { return this->mMessage; }
-	private:
-		std::string mMessage;
-	};
-
-	inline int TextProto::OnSendMessage(std::ostream& os)
-	{
-		os.write(this->mMessage.c_str(), (int)this->mMessage.size());
-		return 0;
-	}
-
-	inline int TextProto::OnRecvMessage(std::istream& os, size_t size)
-	{
-		size_t count = 0;
-		char buffer[128] = { 0 };
-		do
-		{
-			count = os.readsome(buffer, sizeof(buffer));
-			if(count > 0)
-			{
-				this->mMessage.append(buffer, count);
-			}
-		}
-		while(count > 0);
-		return 0;
-	}
 
 	namespace Data
 	{
@@ -199,18 +160,19 @@ namespace tcp
 		IHeader() = default;
 		virtual ~IHeader() = default;
 	public:
+		void Add(const IHeader & header);
 		void Add(const std::string & k, int v);
 		void Add(const std::string & k, long long v);
 		void Add(const std::string & k, const std::string & v);
 		void Set(const std::string & k, const std::string & v);
 	public:
-		static int LuaGet(lua_State * l);
-		static int LuaToString(lua_State * l);
-		static void WriteLua(lua_State *l, const IHeader & header);
+		static int LuaGet(lua_State * L);
+		static int LuaToString(lua_State * L);
+		static void WriteLua(lua_State *L, const IHeader & header);
 	public:
-		auto End() const { return this->mHeader.end(); }
-		auto Begin() const { return this->mHeader.begin(); }
-        size_t Count() const { return this->mHeader.size(); }
+		int GetInt(const std::string & key, int def = 0) const;
+		size_t Count() const { return this->mHeader.size(); }
+		const auto & GetValue() const { return this->mHeader; }
 	public:
 		bool Del(const std::string& k);
 		bool Del(const std::string& k, int & v);

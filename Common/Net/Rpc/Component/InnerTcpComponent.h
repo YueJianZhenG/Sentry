@@ -19,15 +19,15 @@ namespace acs
 	private:
 		char GetNet()  const noexcept final { return rpc::net::tcp; }
 		int Send(int id, std::unique_ptr<rpc::Message> & message) noexcept final;
+		void Broadcast(std::unique_ptr<rpc::Message> &message) noexcept final;
 	protected:
         bool LateAwake() final;
 		void OnClientError(int id, int code) final;
 		void OnRecord(json::w::Document & document) final;
 		bool OnListen(tcp::Socket * socket) noexcept final;
 	private:
-		int OnRequest(std::unique_ptr<rpc::Message> & message) noexcept;
-		int OnForward(std::unique_ptr<rpc::Message> & message) noexcept;
 		rpc::InnerTcpClient * GetClient(int id);
+		int OnForward(std::unique_ptr<rpc::Message> & message) noexcept;
 	private:
 		unsigned long long mWaitCount;
 		class NodeComponent * mActor;
@@ -35,5 +35,6 @@ namespace acs
 		class ThreadComponent * mThread;
         class DispatchComponent* mDispatch;
 		std::unordered_map<int, std::shared_ptr<rpc::InnerTcpClient>> mClients; //本地客户端(连接别的)
+		std::unordered_map<int, std::shared_ptr<rpc::InnerTcpClient>> mSessions; //本地客户端(连接别的)
 	};
 }

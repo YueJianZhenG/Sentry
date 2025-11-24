@@ -15,6 +15,7 @@ namespace acs
 		inline bool Equal(long long id) const { return this->GetId() == id; }
 	public:
 		int DisConnect();
+		std::string ToString();
 		int SendMsg(std::unique_ptr<rpc::Message> message);
 		bool GetAddress(const rpc::Message &request, int &) const final;
 		bool GetListen(const std::string & name, std::string & addr) const;

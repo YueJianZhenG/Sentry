@@ -22,7 +22,7 @@ namespace Lua
 			lua_newtable(this->mLua);
 			{
 				lua_pushstring(this->mLua, "__index");
-				lua_pushcclosure(this->mLua, ClassMateProxy::OnMetaTable, 0);
+				lua_pushcclosure(this->mLua, ClassMateProxy::Index, 0);
 				lua_rawset(this->mLua, -3);
 			}
 			lua_setglobal(this->mLua, this->mName.c_str());

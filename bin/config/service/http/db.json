@@ -29,6 +29,17 @@
 			"sql" : ""
 		}
 	},
+	"/db/sqlite" : {
+		"type" : "POST",
+		"auth" : false,
+		"async" : true,
+		"desc" : "执行sqlite命令",
+		"bind" : "DBHttpService.Sqlite",
+		"content-type": "application/json",
+		"request" : {
+			"sql" : ""
+		}
+	},
 	"/db/mongo" : {
 		"type" : "POST",
 		"auth" : false,

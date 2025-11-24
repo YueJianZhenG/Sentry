@@ -21,11 +21,13 @@
 #include <cfloat>
 #include <iostream>
 #include <sstream>
-#include <stdio.h>
+#include <cstdio>
 #include <string>
 #include "string_data.h"
 #include "endian.h"
-
+#ifdef __ENABLE_MI_MALLOC__
+#include "mimalloc.h"
+#endif
 namespace _bson {
     /* Accessing unaligned doubles on ARM generates an alignment trap and aborts with SIGBUS on Linux.
        Wrapping the double in a packed struct forces gcc to generate code that works with unaligned values too.
@@ -59,35 +61,16 @@ namespace _bson {
 
     class TrivialAllocator { 
     public:
-        inline void* Malloc(size_t sz) { return malloc(sz); }
+#ifdef __ENABLE_MI_MALLOC__
+		inline void* Malloc(size_t sz) { return mi_malloc(sz); }
+		inline void* Realloc(void *p, size_t sz) { return mi_realloc(p, sz); }
+		inline void Free(void *p) { mi_free(p); }
+#else
+		inline void* Malloc(size_t sz) { return malloc(sz); }
         inline void* Realloc(void *p, size_t sz) { return realloc(p, sz); }
         inline void Free(void *p) { free(p); }
-    };
+#endif
 
-    class StackAllocator {
-    public:
-        enum { SZ = 512 };
-        void* Malloc(size_t sz) {
-            if( sz <= SZ ) return buf;
-            return malloc(sz); 
-        }
-        void* Realloc(void *p, size_t sz) { 
-            if( p == buf ) {
-                if( sz <= SZ ) return buf;
-                void *d = malloc(sz);
-                if ( d == 0 )
-                    msgasserted( 15912 , "out of memory StackAllocator::Realloc" );
-                memcpy(d, p, SZ);
-                return d;
-            }
-            return realloc(p, sz); 
-        }
-        void Free(void *p) { 
-            if( p != buf )
-                free(p); 
-        }
-    private:
-        char buf[SZ];
     };
 
     /** note this builder, when using its appendNum() methods, creates a buffer in 
@@ -244,11 +227,6 @@ namespace _bson {
           nothing bad would happen.  In fact in some circumstances this might make sense, say, 
           embedded in some other object.
     */
-    class StackBufBuilder : public _BufBuilder<StackAllocator> { 
-    public:
-        StackBufBuilder() : _BufBuilder<StackAllocator>(StackAllocator::SZ) { }
-        void decouple(); // not allowed. not implemented.
-    };
 
     /** std::stringstream deals with locale so this is a lot faster than std::stringstream for UTF8 */
     template <typename Allocator>
@@ -348,7 +326,6 @@ namespace _bson {
     };
 
     typedef StringBuilderImpl<TrivialAllocator> StringBuilder;
-    typedef StringBuilderImpl<StackAllocator> StackStringBuilder;
 
 }
 

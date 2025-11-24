@@ -1,13 +1,13 @@
 //
 // Created by yy on 2023/8/12.
 //
-
-#include"FileOutput.h"
-#include"fmt.h"
-#include"Util/Tools/TimeHelper.h"
-#include"Util/File/FileHelper.h"
-#include"Util/File/DirectoryHelper.h"
+#include "fmt.h"
+#include "FileOutput.h"
+#include "Util/Tools/TimeHelper.h"
+#include "Util/File/FileHelper.h"
+#include "Util/File/DirectoryHelper.h"
 #include "Log/Common/CommonLogDef.h"
+
 namespace custom
 {
 	FileOutput::FileOutput(FileConfig config)
@@ -15,12 +15,11 @@ namespace custom
 	{
 		this->mIndex = 0;
 		this->mFileLine = 0;
-		this->mOpenFileTime = 0;
 	}
 
 	void FileOutput::Close()
 	{
-		if(this->mDevStream.is_open())
+		if (this->mDevStream.is_open())
 		{
 			this->mDevStream.flush();
 			this->mDevStream.close();
@@ -31,14 +30,13 @@ namespace custom
 	{
 		this->mIndex = 0;
 		this->mFileLine = 0;
-		const std::string & root = this->mConfig.Root;
+		const std::string& root = this->mConfig.Root;
 		std::string time = help::Time::GetYearMonthDayString();
 		const std::string dir = fmt::format("{}/{}", root, time);
-		if(!help::dir::MakeDir(dir))
+		if (!help::dir::MakeDir(dir))
 		{
 			return false;
 		}
-		this->mOpenFileTime = help::Time::NowSec();
 		this->mPath = fmt::format("{}/{}.log", dir, this->mConfig.Name);
 		return true;
 	}
@@ -48,12 +46,19 @@ namespace custom
 		return this->Init();
 	}
 
+	void FileOutput::OnNewDay()
+	{
+		this->Init();
+		this->OpenFile();
+	}
+
+
 	bool FileOutput::OpenFile()
 	{
-		if(!this->mDevStream.is_open())
+		if (!this->mDevStream.is_open())
 		{
 			this->mDevStream.open(this->mPath, std::ios::out | std::ios::app | std::ios::ate);
-			if(!this->mDevStream.is_open())
+			if (!this->mDevStream.is_open())
 			{
 				return false;
 			}
@@ -63,74 +68,85 @@ namespace custom
 		return true;
 	}
 
-	void FileOutput::OnTick(int tick)
-	{
-
-	}
-
-	void FileOutput::Push(Asio::Context &io, const std::string& name, const custom::LogInfo& logData)
+	void FileOutput::Push(Asio::Context& io, const std::string& name, const custom::LogInfo& logData)
 	{
 		if (!this->OpenFile())
 		{
 			return;
 		}
-		static std::string LogDebug(" [debug]");
-		static std::string LogInfo(" [info ]");
-		static std::string LogWarn(" [warn ]");
-		static std::string LogError(" [error]");
-		static std::string LogFatal(" [fatal]");
-		long long nowTime = help::Time::NowSec();
-		std::string time = help::Time::GetDateString(nowTime);
-		if(!help::Time::IsSameDay(nowTime, this->mOpenFileTime))
-		{
-			this->Init();
-			this->SwitchFile();
-		}
+		constexpr char empty = ' ';
+		std::string time = help::Time::GetDateString();
 		switch (logData.Level)
 		{
-			case LogLevel::Debug:
-				this->mDevStream.write(time.c_str(), (int)time.size()) << " ";
-				this->mDevStream.write(LogDebug.c_str(), (int)LogDebug.size());
+		case LogLevel::Debug:
+			{
+				static std::string type = fmt::format(" [{:<7}] ", "debug");
+				this->mDevStream.write(time.c_str(), (std::streamsize)time.size()) << empty;
+				this->mDevStream.write(type.c_str(), (std::streamsize)type.size());
 				break;
-			case LogLevel::Info:
-				this->mDevStream.write(time.c_str(), (int)time.size()) << " ";
-				this->mDevStream.write(LogInfo.c_str(), (int)LogInfo.size());
+			}
+
+		case LogLevel::Info:
+			{
+				static std::string type = fmt::format(" [{:<7}] ", "info");
+				this->mDevStream.write(time.c_str(), (std::streamsize)time.size()) << empty;
+				this->mDevStream.write(type.c_str(), (std::streamsize)type.size());
 				break;
-			case LogLevel::Warn:
-				this->mDevStream.write(time.c_str(), (int)time.size()) << " ";
-				this->mDevStream.write(LogWarn.c_str(), (int)LogWarn.size());
+			}
+
+		case LogLevel::Warn:
+			{
+				static std::string type = fmt::format(" [{:<7}] ", "warn");
+				this->mDevStream.write(time.c_str(), (std::streamsize)time.size()) << empty;
+				this->mDevStream.write(type.c_str(), (std::streamsize)type.size());
 				break;
-			case LogLevel::Error:
-				this->mDevStream.write(time.c_str(), (int)time.size()) << " ";
-				this->mDevStream.write(LogError.c_str(), (int)LogError.size());
+			}
+
+		case LogLevel::Error:
+			{
+				static std::string type = fmt::format(" [{:<7}] ", "error");
+				this->mDevStream.write(time.c_str(), (std::streamsize)time.size()) << empty;
+				this->mDevStream.write(type.c_str(), (std::streamsize)type.size());
 				break;
-			case LogLevel::Fatal:
-				this->mDevStream.write(time.c_str(), (int)time.size()) << " ";
-				this->mDevStream.write(LogFatal.c_str(), (int)LogFatal.size());
+			}
+
+		case LogLevel::Fatal:
+			{
+				static std::string type = fmt::format(" [{:<7}] ", "fatal");
+				this->mDevStream.write(time.c_str(), (std::streamsize)time.size()) << empty;
+				this->mDevStream.write(type.c_str(), (std::streamsize)type.size());
 				break;
+			}
+		default:
+			{
+				std::string type = fmt::format(" [{:<7}] ", name);
+				this->mDevStream.write(time.c_str(), (std::streamsize)time.size()) << empty;
+				this->mDevStream.write(type.c_str(), (std::streamsize)type.size());
+			}
+			break;
 		}
 		if (!logData.File.empty())
 		{
-			this->mDevStream.write(logData.File.c_str(), (int)logData.File.size());
-			this->mDevStream << " ";
+			this->mDevStream.write(logData.File.c_str(), (std::streamsize)logData.File.size());
+			this->mDevStream << empty;
 		}
 
-		this->mDevStream.write(logData.Content.c_str(), (int)logData.Content.size());
+		this->mDevStream.write(logData.Content.c_str(), (std::streamsize)logData.Content.size());
 
 		this->mDevStream << "\n";
-		if (!logData.Stack.empty())
+		if (logData.Stack != nullptr)
 		{
 			this->mFileLine++;
-			this->mDevStream << logData.Stack << "\n";
+			this->mDevStream.write(logData.Stack->c_str(), (std::streamsize)logData.Stack->size()) << "\n";
 		}
 		this->mFileLine++;
-		if(this->mFileLine >= this->mConfig.MaxLine)
+		if (this->mFileLine >= this->mConfig.MaxLine)
 		{
 			this->SwitchFile();
 			return;
 		}
 		size_t fileSize = this->mDevStream.tellp();
-		if(fileSize >= this->mConfig.MaxSize)
+		if (fileSize >= this->mConfig.MaxSize)
 		{
 			this->SwitchFile();
 			return;
@@ -144,18 +160,18 @@ namespace custom
 		this->mFileLine = 0;
 		this->mDevStream.flush();
 		this->mDevStream.close();
-		const std::string & root = this->mConfig.Root;
+		const std::string& root = this->mConfig.Root;
 		std::string time = help::Time::GetYearMonthDayString();
 
 		std::string dir = fmt::format("{}/{}", root, time);
-		if(!help::dir::DirectorIsExist(dir))
+		if (!help::dir::DirectorIsExist(dir))
 		{
 			this->mIndex = 0;
 			help::dir::MakeDir(dir);
 		}
 		std::string path = fmt::format("{}/{}-{}.log", dir, this->mConfig.Name, this->mIndex);
 
-		while(help::fs::FileIsExist(path))
+		while (help::fs::FileIsExist(path.c_str()))
 		{
 			this->mIndex++;
 			path = fmt::format("{}/{}-{}.log", dir, this->mConfig.Name, this->mIndex);

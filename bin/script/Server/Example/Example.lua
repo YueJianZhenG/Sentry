@@ -6,7 +6,7 @@ local Example = RpcService()
 
 function Example:Ping(request)
     print("==========", request)
-    return XCode.Ok, "pong"
+    return XCode.Ok, request
 end
 
 return Example

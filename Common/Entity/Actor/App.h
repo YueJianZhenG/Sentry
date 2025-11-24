@@ -26,13 +26,14 @@ namespace acs
 	 public:
 		explicit App(int id, const std::string & name);
 	 public:
-        inline float GetFps() const { return this->mLogicFps; }
+        inline float GetFps() const { return this->mFps; }
+		inline int GetDeltaTime() const { return this->mDeltaTime; }
 		inline const ServerConfig & Config() const { return mConfig; }
 		inline ServerStatus GetStatus() const { return this->mStatus; }
 		inline long long StartTime() const { return this->mStartTime; }
 		inline void Sleep(int ms = 1000) { this->mCoroutine->Sleep(ms); }
 	 public:
-		int Run() noexcept;
+		int Run();
 		int Run(const std::string & cmd);
 		void Stop();
 		bool Refresh();
@@ -45,28 +46,23 @@ namespace acs
         bool OnDelComponent(Component *component) final { return false; }
 		inline size_t GetEventCount() const { return this->mEventCount; }
 		inline long long GetStartUseMemory() const { return this->mStartMemory; }
+#ifdef __DEBUG__
 		inline bool IsMainThread() const { return this->mMainId == std::this_thread::get_id(); }
+#endif
 	public:
 		template<typename T>
 		static inline T * Get() { return App::Inst()->GetComponent<T>(); }
 		static inline NodeComponent * ActorMgr() { return App::Inst()->mActor; }
 		static inline ProtoComponent * GetProto() { return App::Inst()->mProto; }
 		static inline CoroutineComponent* Coroutine() { return App::Inst()->mCoroutine; }
-
-	public:
-		std::string Sign(json::w::Document & document);
-		bool DecodeSign(const std::string & sign, json::r::Document & document);
     private:
 		bool LoadComponent();
 		bool InitComponent();
 		void StartAllComponent();
 	 private:
-#ifdef __DEBUG__
-		std::thread::id mMainId;
-#endif
+		float mFps;
 		int mGuidIndex;
-        int mTickCount;
-		float mLogicFps;
+		int mDeltaTime; //两帧时间差
 		size_t mEventCount;
 		ServerStatus mStatus;
 		Asio::Context mContext;
@@ -77,6 +73,9 @@ namespace acs
         const long long mStartTime;
 		NodeComponent * mActor;
 		ProtoComponent * mProto;
+#ifdef __DEBUG__
+		std::thread::id mMainId;
+#endif
 		CoroutineComponent* mCoroutine;
     };
 }// namespace Sentry

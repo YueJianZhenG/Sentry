@@ -13,7 +13,7 @@ namespace help
 		{
 			return true;
 		}
-		long long lastWrite = help::fs::GetLastWriteTime(path);
+		long long lastWrite = help::fs::GetLastWriteTime(path.c_str());
 		return lastWrite != iter->second;
 	}
 
@@ -23,7 +23,7 @@ namespace help
 		{
 			return false;
 		}
-		this->mFileWriteTimes[path] = help::fs::GetLastWriteTime(path);
+		this->mFileWriteTimes[path] = help::fs::GetLastWriteTime(path.c_str());
 		return true;
 	}
 
@@ -33,7 +33,7 @@ namespace help
 		{
 			return false;
 		}
-		this->mFileWriteTimes[path] = help::fs::GetLastWriteTime(path);
+		this->mFileWriteTimes[path] = help::fs::GetLastWriteTime(path.c_str());
 		return true;
 	}
 
@@ -43,7 +43,7 @@ namespace help
 		{
 			return false;
 		}
-		this->mFileWriteTimes[path] = help::fs::GetLastWriteTime(path);
+		this->mFileWriteTimes[path] = help::fs::GetLastWriteTime(path.c_str());
 		return true;
 	}
 
@@ -58,7 +58,7 @@ namespace help
 		{
 			return false;
 		}
-		this->mFileWriteTimes[path] = help::fs::GetLastWriteTime(path);
+		this->mFileWriteTimes[path] = help::fs::GetLastWriteTime(path.c_str());
 		return true;
 	}
 
@@ -72,7 +72,7 @@ namespace help
 		{
 			return false;
 		}
-		this->mFileWriteTimes[path] = help::fs::GetLastWriteTime(path);
+		this->mFileWriteTimes[path] = help::fs::GetLastWriteTime(path.c_str());
 		return true;
 	}
 }

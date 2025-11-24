@@ -4,11 +4,12 @@
 
 #include "WebSocketMessage.h"
 #include "Util/Tools/Random.h"
+
 namespace ws
 {
 
 	constexpr int CHAR_COUNT = std::numeric_limits<char>::max();
-	constexpr int USHORT_COUNT = std::numeric_limits<unsigned short >::max();
+	constexpr int USHORT_COUNT = std::numeric_limits<unsigned short>::max();
 
 	Message::Message()
 	{
@@ -19,6 +20,7 @@ namespace ws
 	{
 		this->mOffset = 0;
 		this->mMessage.clear();
+		this->mStatus = tcp::Decode::None;
 		memset(&this->mHeader, 0, sizeof(Header));
 		memset(this->mMaskingKey, 0, sizeof(this->mMaskingKey));
 	}
@@ -40,7 +42,7 @@ namespace ws
 			this->mHeader.length = 126;
 			buffer = std::make_unique<char[]>(2);  // 使用 2 个字节表示长度
 			unsigned short size = this->mMessage.size();
-			tcp::Data::Write<unsigned short >(buffer.get(), size);
+			tcp::Data::Write<unsigned short>(buffer.get(), size);
 		}
 		else
 		{
@@ -74,7 +76,7 @@ namespace ws
 		{
 			os.write(buffer.get(), 8);
 		}
-		if(this->mHeader.mask)
+		if (this->mHeader.mask)
 		{
 			os.write(this->mMaskingKey, 4);
 		}
@@ -87,29 +89,25 @@ namespace ws
 		this->mHeader.mask = mask;
 		this->mHeader.opcode = opcode;
 		this->mMessage.assign(message);
-		if(this->mHeader.mask)
+		if (this->mHeader.mask)
 		{
-			for(size_t index = 0; index < sizeof(this->mMaskingKey); index++)
+			for (size_t index = 0; index < sizeof(this->mMaskingKey); index++)
 			{
 				int num = help::Rand::Random<int>(0, sizeof(unsigned char));
 				this->mMaskingKey[index] = static_cast<char>(num);
 			}
-			for(size_t index = 0; index < this->mMessage.size(); index++)
+			for (size_t index = 0; index < this->mMessage.size(); index++)
 			{
-				this->mMessage[index] = this->mMessage[index]  ^ this->mMaskingKey[index % 4];
+				this->mMessage[index] = this->mMessage[index] ^ this->mMaskingKey[index % 4];
 			}
 		}
 	}
 
 	int Message::OnRecvMessage(std::istream& os, size_t size)
 	{
-		if (this->mHeader.length == 0)
+		if (this->mStatus == tcp::Decode::None)
 		{
 			this->mOffset = 2;
-			if (size < this->mOffset)
-			{
-				return tcp::read::decode_error;
-			}
 			int value = os.get();
 			int value2 = os.get();
 			this->mHeader.fin = (value & 0x80) != 0;
@@ -120,6 +118,29 @@ namespace ws
 			{
 				return tcp::read::decode_error;
 			}
+			size_t readCount = 0;
+			switch (this->mHeader.length)
+			{
+				case 126:
+					readCount += 2;
+					break;
+				case 127:
+					readCount += 8;
+					break;
+			}
+			if (this->mHeader.mask)
+			{
+				readCount += 4;
+			}
+			this->mStatus = tcp::Decode::MessageHead;
+			if (size - this->mOffset < readCount)
+			{
+				this->mOffset = 0;
+				return (int)readCount;
+			}
+		}
+		if (this->mStatus == tcp::Decode::MessageHead)
+		{
 			switch (this->mHeader.length)
 			{
 				case 126:
@@ -130,7 +151,7 @@ namespace ws
 						return tcp::read::decode_error;
 					}
 					char buffer[2] = { 0 };
-					if(os.readsome(buffer, sizeof(buffer)) != 2)
+					if (os.readsome(buffer, sizeof(buffer)) != 2)
 					{
 						return tcp::read::decode_error;
 					}
@@ -159,7 +180,6 @@ namespace ws
 				return tcp::read::big_long;
 			}
 
-
 			if (this->mHeader.mask)
 			{
 				this->mOffset += 4;
@@ -171,23 +191,24 @@ namespace ws
 				os.readsome(this->mMaskingKey, 4);
 			}
 			this->mOffset = 0;
+			this->mStatus = tcp::Decode::MessageBody;
 			this->mMessage.resize(this->mHeader.length);
 		}
-
 		int maxReadCount = this->mHeader.length - this->mOffset;
 		char* buffer = const_cast<char*>(this->mMessage.c_str());
 		size_t count = os.readsome(buffer + this->mOffset, maxReadCount);
-		while(count > 0)
+		while (count > 0)
 		{
 			this->mOffset += count;
 			maxReadCount = this->mHeader.length - this->mOffset;
 			count = os.readsome(buffer + this->mOffset, maxReadCount);
 		}
-		if(this->mHeader.length - this->mOffset == 0)
+		if (this->mHeader.length - this->mOffset == 0)
 		{
 			if (this->mHeader.mask)
 			{
-				for (size_t i = 0; i < this->mMessage.size(); ++i) {
+				for (size_t i = 0; i < this->mMessage.size(); ++i)
+				{
 					this->mMessage[i] ^= this->mMaskingKey[i % 4];
 				}
 			}

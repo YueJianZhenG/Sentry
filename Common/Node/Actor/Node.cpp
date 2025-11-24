@@ -88,6 +88,18 @@ namespace acs
 		return this->mRouter->Send(id, message);
 	}
 
+	std::string Node::ToString()
+	{
+		json::w::Document document;
+		document.Add("id", this->GetNodeId());
+		std::unique_ptr<json::w::Value> listenArray = document.AddObject("listen");
+		for (auto iter = this->mListens.begin(); iter != this->mListens.end(); iter++)
+		{
+			listenArray->Add(iter->first.c_str(), iter->second);
+		}
+		return document.JsonString();
+	}
+
 	std::unique_ptr<rpc::Message> Node::Make(const std::string& func) const
 	{
 		const RpcMethodConfig * methodConfig = RpcConfig::Inst()->GetMethodConfig(func);
@@ -103,6 +115,7 @@ namespace acs
 			message->SetProto(methodConfig->proto);
 			message->GetHead().Add(rpc::Header::func, func);
 			message->GetHead().Add(rpc::Header::id, this->mAppId);
+			message->SetTimeout(methodConfig->timeout);
 		}
 		message->SetSockId(this->GetNodeId());
 		return message;

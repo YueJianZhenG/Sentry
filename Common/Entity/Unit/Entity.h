@@ -50,6 +50,7 @@ namespace acs
 	 protected:
 		virtual void OnAddComponent(Component * component) {}
 		virtual bool OnDelComponent(Component * component) { return true; }
+		inline void ClearComponents() { this->mComponentMap.clear(); this->mSortComponents.clear(); }
 	 public:
 		inline long long GetId() const { return this->mId; }
 	 private:

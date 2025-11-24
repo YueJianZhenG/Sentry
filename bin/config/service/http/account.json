@@ -3,7 +3,7 @@
 		"type": "POST",
 		"async": true,
 		"auth": true,
-		"permission": 20,
+		"access": 20,
 		"desc": "分页查看账号",
 		"bind": "AccountManager.List",
 		"content-type": "application/json",
@@ -15,7 +15,7 @@
 		"type": "GET",
 		"async": true,
 		"auth": true,
-		"permission": 20,
+		"access": 20,
 		"desc": "查看用户数据",
 		"bind": "AccountManager.Find",
 		"request": {
@@ -26,14 +26,14 @@
 		"type": "POST",
 		"async": true,
 		"auth": true,
-		"permission": 100,
+		"access": 100,
 		"desc": "修改用户数据",
 		"bind": "AccountManager.Change",
 		"content-type": "application/json",
 		"request": {
 			"sex": 1,
 			"nick": "",
-			"permission": 1,
+			"access": 1,
 			"user_id": 1122
 		}
 	},
@@ -41,7 +41,7 @@
 		"type": "GET",
 		"async": true,
 		"auth": true,
-		"permission": 20,
+		"access": 20,
 		"desc": "删除账号",
 		"Record": true,
 		"bind": "AccountManager.Delete",
@@ -53,7 +53,7 @@
 		"type": "GET",
 		"async": true,
 		"auth": true,
-		"permission": 20,
+		"access": 20,
 		"desc": "后台查找用户数据",
 		"bind": "UserManager.Find",
 		"request": {

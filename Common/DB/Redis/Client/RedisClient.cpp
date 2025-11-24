@@ -124,6 +124,7 @@ namespace redis
 	{
 		if(code.value() != Asio::OK)
 		{
+			LOG_ERROR("client:{} connect => {}", this->mClientId, count);
 			if(count < this->mConfig.conn_count)
 			{
 				this->Connect(5);
@@ -132,6 +133,7 @@ namespace redis
 		}
 		else if(this->Auth(false))
 		{
+			LOG_DEBUG("client:{} connect ok", this->mClientId);
 			if (this->mRequest != nullptr)
 			{
 				this->Write(*this->mRequest);
@@ -165,6 +167,7 @@ namespace redis
 			Asio::Code code;
 			if (!this->ConnectSync(code))
 			{
+				LOG_ERROR("connect => {}", code.message())
 				return false;
 			}
 		}
@@ -227,13 +230,13 @@ namespace redis
 	void Client::OnSendMessage(const Asio::Code& code)
 	{
 		this->Connect(5);
-		CONSOLE_LOG_WARN("[{}] send error", this->mClientId);
+		LOG_ERROR("[{}] send => {}", this->mClientId, code.message());
 	}
 
 	void Client::OnReadError(const Asio::Code& code)
 	{
 		this->Connect(5);
-		CONSOLE_LOG_WARN("[{}] read error", this->mClientId);
+		LOG_ERROR("[{}] read => {}", this->mClientId, code.message());
 	}
 
 	bool Client::OnMessage(std::istream& readStream, size_t size, redis::Element& element)
@@ -257,36 +260,36 @@ namespace redis
 			case redis::type::String:
 				return true;
 			case redis::type::Number:
-			{
-				help::Math::ToNumber(element.message, element.number);
-				return true;
-			}
+				return help::Math::ToNumber(element.message, element.number);
 			case redis::type::BinString:
 			{
 				int count = 0;
-				size_t length = 0;
-				help::Math::ToNumber(element.message, count);
-				if (count <= 0)
-				{
-					break;
-				}
-				char buffer[512] = { 0};
-				element.message.clear();
-				element.message.reserve(count);
-				while(count > 0 && this->RecvSomeSync(length))
-				{
-					int len = std::min(count, (int)length);
-					len = std::min(len, (int)sizeof(buffer));
-					if(readStream.readsome(buffer, len) != len)
-					{
-						return false;
-					}
-					count -= len;
-					element.message.append(buffer, len);
-				}
-				if(count != 0)
+				if(!help::Math::ToNumber(element.message, count))
 				{
 					return false;
+				}
+				element.message.clear();
+				if(count == -1)
+				{
+					return true;
+				}
+				size_t length = 0;
+				if (count > 0)
+				{
+					int offset = 0;
+					element.message.clear();
+					element.message.resize(count);
+					while(offset < count)
+					{
+						char * buffer = (char*) element.message.data() + offset;
+						length = readStream.readsome(buffer, count - offset);
+						if(length == 0)
+						{
+							this->RecvSomeSync(length);
+							continue;
+						}
+						offset += (int)length;
+					}
 				}
 				if(!this->RecvSync(2, length))
 				{
@@ -323,6 +326,10 @@ namespace redis
 
 	void Client::OnReceiveLine(std::istream& buffer, size_t size)
 	{
+//		if(this->mResponse == nullptr)
+//		{
+//			this->mResponse = std::make_unique<redis::Response>();
+//		}
 		std::unique_ptr<redis::Response> response = std::make_unique<redis::Response>();
 		if(!this->OnMessage(buffer, size, response->element))
 		{

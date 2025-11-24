@@ -7,10 +7,6 @@ namespace help
 {
     namespace fs
     {
-		constexpr size_t KB = 1024;
-		constexpr size_t MB = 1024 * 1024;
-		constexpr size_t GB = 1024 * 1024 * 1024;
-		
 		extern bool FileIsExist(const std::string &path);
 		extern long long GetLastWriteTime(const std::string & path);
 		extern bool GetFileLine(const std::string & path, size_t & size);
@@ -22,6 +18,10 @@ namespace help
 		extern bool ChangeName(const std::string & path, const std::string & name);
 		extern bool WriterFile(const std::string &path, const std::string &fileContent);
 		extern bool ReadTxtFile(const std::string &path, std::vector<std::string> &outLines, char delim = ';');
+
+
+		extern bool Open(std::ifstream & fs, const std::string & path, std::ios_base::openmode flag = std::ios::in);
+		extern bool Open(std::ofstream & fs, const std::string & path, std::ios_base::openmode flag = std::ios::out);
 	}
 
 }// namespace FileHelper

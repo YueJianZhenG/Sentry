@@ -12,7 +12,7 @@
 #include "Proto/Component/ProtoComponent.h"
 #include "Rpc/Component/DispatchComponent.h"
 
-constexpr char msg_format = rpc::msg::json;
+constexpr char MSG_TYPE = rpc::msg::json;
 namespace acs
 {
 	WsClientComponent::WsClientComponent()
@@ -50,7 +50,7 @@ namespace acs
 		int id = ++this->mIndex;
 		Asio::Context & context = this->mApp->GetContext();
 		std::unique_ptr<tcp::Socket> tcpSocket = std::make_unique<tcp::Socket>(context);
-		std::shared_ptr<ws::Client> client = std::make_shared<ws::Client>(id, this, context, msg_format);
+		std::shared_ptr<ws::Client> client = std::make_shared<ws::Client>(id, this, context, MSG_TYPE);
 		{
 			tcpSocket->Init(ip, port);
 			client->SetSocket(tcpSocket.release());
@@ -72,14 +72,13 @@ namespace acs
 
 	void WsClientComponent::OnSendFailure(int id, rpc::Message* message)
 	{
-		if(message->GetType() == rpc::type::request && message->GetRpcId() > 0)
+		std::unique_ptr<rpc::Message> request(message);
+		if(request->GetType() == rpc::type::request && request->GetRpcId() > 0)
 		{
-			message->SetType(rpc::type::response);
-			message->GetHead().Add(rpc::Header::code, XCode::SendMessageFail);
-			this->OnMessage(message, nullptr);
-			return;
+			request->SetType(rpc::type::response);
+			request->GetHead().Add(rpc::Header::code, XCode::SendMessageFail);
+			this->mDisComponent->OnMessage(request);
 		}
-		delete message;
 	}
 
 	void WsClientComponent::OnMessage(rpc::Message* req, rpc::Message*) noexcept

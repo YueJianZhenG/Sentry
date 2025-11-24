@@ -5,7 +5,6 @@
 #ifndef APP_ICONTENT_H
 #define APP_ICONTENT_H
 
-#include <iostream>
 #include"Http/Client/Http.h"
 
 struct lua_State;

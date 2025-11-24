@@ -11,7 +11,7 @@
 namespace acs
 {
 	class TcpClientComponent final : public Component,
-									 public IRpc<rpc::Message, rpc::Message>, public rpc::IInnerSender
+			public IRpc<rpc::Message, rpc::Message>, public rpc::IInnerSender
 	{
 	public:
 		TcpClientComponent();

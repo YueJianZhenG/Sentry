@@ -1,11 +1,13 @@
 {
 	"RegistryService.Add" : {
 		"async" : false,
-		"proto" : "json"
+		"proto" : "json",
+		"desc" : "注册节点信息"
 	},
 	"RegistryService.Del" : {
 		"async" : false,
-		"proto" : "string"
+		"proto" : "string",
+		"desc" : "删除节点信息"
 	},
 	"RegistryService.Ping" : {
 		"async" : false,

@@ -4,7 +4,7 @@
 
 #include "MysqlProto.h"
 
-#include <utility>
+#include <regex>
 #include "Util/Crypt/sha1.h"
 #include "XCode/XCode.h"
 #include "Util/Tools/String.h"
@@ -340,6 +340,12 @@ namespace mysql
 		this->Clear();
 	}
 
+	Response::Response(unsigned char code)
+	{
+		this->Clear();
+		this->mPackageCode = code;
+	}
+
 	void Response::Clear()
 	{
 		this->mIndex = 0;
@@ -450,9 +456,10 @@ namespace mysql
 		{
 			return 0;
 		}
-		tcp::Data::Read(this->mMessage.c_str() + pos, len, offset, false);
+		unsigned int length = len;
+		tcp::Data::Read(this->mMessage.c_str() + pos, length, offset, false);
 		pos += offset;
-		return len;
+		return length;
 	}
 
 	void Response::SkipString(unsigned int& pos)

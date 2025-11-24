@@ -7,7 +7,9 @@
         },
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "在读节点执行sql语句"
     },
     "MysqlReadProxy.Like" : {
         "async": true,
@@ -21,7 +23,9 @@
         },
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "模糊匹配"
     },
     "MysqlReadProxy.Find" : {
         "async": true,
@@ -34,7 +38,9 @@
         },
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据条件查询多条数据"
     },
     "MysqlReadProxy.FindOne" : {
         "async": true,
@@ -44,7 +50,9 @@
             "filter" : { },
             "fields" : ["xxx"]
         },
-        "response" : { }
+        "timeout" : 15,
+        "response" : { },
+        "desc" : "根据条件查询单条数据"
     },
     "MysqlReadProxy.Execute" : {
         "async": true,
@@ -55,7 +63,9 @@
         },
         "response" : {
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "执行预编译sql"
     },
     "MysqlReadProxy.Count" : {
         "async": true,
@@ -66,7 +76,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据条件获取数据多少条"
     },
     "MysqlReadProxy.Func" : {
         "async": true,
@@ -77,9 +89,11 @@
             "field" : "",
             "filter" : { }
         },
+        "timeout" : 15,
         "response" : {
             "data" : { }
-        }
+        },
+        "desc" : "执行聚合函数"
     },
     "MysqlReadProxy.FindPage" : {
         "async": true,
@@ -91,9 +105,11 @@
             "filter" : { },
             "fields" : ["xxx"]
         },
+        "timeout" : 15,
         "response" : {
             "list" : []
-        }
+        },
+        "desc" : "根据条件查询分页查询"
     },
     "MysqlReadProxy.Distinct" : {
         "async": true,
@@ -103,9 +119,11 @@
             "filter" : { },
             "fields" : []
         },
+        "timeout" : 15,
         "response" : {
             "list" : []
-        }
+        },
+        "desc" : "根据条件去重"
     },
     "MysqlWriteProxy.Run" : {
         "async": true,
@@ -113,9 +131,11 @@
         "request" : {
             "sql" : ""
         },
+        "timeout" : 15,
         "response" : {
             "list" : []
-        }
+        },
+        "desc" : "在写节点执行sql"
     },
     "MysqlWriteProxy.Inc" : {
         "async": true,
@@ -127,9 +147,11 @@
             "limit" : 1,
             "filter" : {}
         },
+        "timeout" : 15,
         "response" : {
             "count" : 0
-        }
+        },
+        "desc" : "对某个字段+="
     },
     "MysqlWriteProxy.Commit" : {
         "async": true,
@@ -138,7 +160,9 @@
         "response" : {
             "count" : 0,
             "list" : []
-        }
+        },
+        "timeout" : 15,
+        "desc" : "在事务中执行sql"
     },
     "MysqlWriteProxy.InsertOne" : {
         "async": true,
@@ -149,7 +173,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "插入单条数据"
     },
     "MysqlWriteProxy.InsertBatch" : {
         "async": true,
@@ -160,7 +186,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "插入多条数据"
     },
     "MysqlWriteProxy.Replace" : {
         "async": true,
@@ -171,7 +199,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "替换数据"
     },
     "MysqlWriteProxy.Delete" : {
         "async": true,
@@ -180,7 +210,9 @@
             "tab" : "",
             "limit" : 0,
             "filter" : { }
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据条件删除多条数据"
     },
     "MysqlWriteProxy.Update" : {
         "async": true,
@@ -193,7 +225,9 @@
         },
         "response" : {
             "count" : 0
-        }
+        },
+        "timeout" : 15,
+        "desc" : "根据条件更新多条数据"
     },
     "MysqlWriteProxy.SetIndex" : {
         "async": true,
@@ -202,6 +236,36 @@
             "tab" : "",
             "field" : "",
             "unique" : false
-        }
+        },
+        "timeout" : 15,
+        "desc" : "设置索引"
+    },
+    "MysqlWriteProxy.Execute" : {
+        "async": true,
+        "proto" : "json",
+        "request" : {
+            "stmt" : "",
+            "args" : { }
+        },
+        "response" : {
+            "list" : []
+        },
+        "timeout" : 15,
+        "desc" : "执行预编译sql"
+    },
+    "MysqlWriteProxy.Deduction" : {
+        "async": true,
+        "proto" : "json",
+        "request" : {
+            "tab" : "",
+            "field" : "",
+            "value" : 0,
+            "filter" : { }
+        },
+        "response" : {
+            "count" : 0
+        },
+        "timeout" : 15,
+        "desc" : "扣减一个字段,并且扣完>=0"
     }
 }

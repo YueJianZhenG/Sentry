@@ -7,6 +7,12 @@
 #include"Http/Common/Content.h"
 namespace http
 {
+	namespace url
+	{
+		extern std::string encode(const std::string & url);
+		extern std::string decode(const std::string & url);
+	}
+
 	class Url : public tcp::IProto
 	{
 	public:

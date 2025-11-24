@@ -24,14 +24,14 @@ namespace acs
 		this->mRetryCount = 0;
 		this->mConfig.count = 1;
 		this->mConfig.debug = false;
-		db::Explain::RegisterFields();
-		pgsql::Cluster::RegisterFields();
+		sql::RegisterObject();
+		db::Explain::RegisterAllFields();
+		pgsql::Cluster::RegisterAllFields();
 	}
 
 	bool PgsqlDBComponent::Awake()
 	{
-		LuaCCModuleRegister::Add([](Lua::CCModule& ccModule)
-		{
+		LuaCCModuleRegister::Add([](Lua::CCModule& ccModule) {
 			ccModule.Open("db.pgsql", lua::lib::luaopen_lpgsqldb);
 		});
 		LOG_CHECK_RET_FALSE(ServerConfig::Inst()->Get("pgsql", this->mConfig))
@@ -345,9 +345,13 @@ namespace acs
 	void PgsqlDBComponent::OnRecord(json::w::Document& document)
 	{
 		timer::ElapsedTimer timer1;
-		this->Run("SELECT 1");
+		std::unique_ptr<pgsql::Response> response = this->Run("SELECT 1");
 		std::unique_ptr<json::w::Value> jsonValue = document.AddObject("pgsql");
 		{
+			if(!response->error.empty())
+			{
+				jsonValue->Add("error", response->error.front());
+			}
 			jsonValue->Add("sum", this->mSumCount);
 			jsonValue->Add("retry", this->mRetryCount);
 			jsonValue->Add("client", this->mClients.size());
@@ -381,7 +385,7 @@ namespace acs
 					sqlLog->Content = fmt::format("[{}ms] {}\n", ms, sql);
 					{
 						sqlLog->Content.append(result);
-						logger->PushLog("pgsql", std::move(sqlLog));
+						logger->PushLog("pgsql", sqlLog);
 					}
 				}
 			}
@@ -404,6 +408,7 @@ namespace acs
 				LOG_ERROR("[response] {}", error);
 			}
 		}
+#ifdef __DEBUG__
 		else
 		{
 			if (this->mConfig.explain.open && rpcId > 0)
@@ -423,9 +428,10 @@ namespace acs
 				LOG_DEBUG("[{}ms] ({}) {}", request->GetCostTime(), response->results.size(), request->ToString())
 			}
 		}
+#endif
 		if (rpcId > 0)
 		{
-			this->OnResponse(rpcId, std::move(response));
+			this->OnResponse(rpcId, response);
 		}
 	}
 

@@ -4,6 +4,7 @@
 #include"Rpc/Async/RpcTaskSource.h"
 #include"Rpc/Config/MethodConfig.h"
 #include"Log/Common/Logger.h"
+#include "Core/Map/HashMap.h"
 namespace acs
 {
 	class RpcService;
@@ -17,15 +18,15 @@ namespace acs
 	 public:
 		DispatchComponent();
     public:
-		int OnMessage(std::unique_ptr<rpc::Message> & message) noexcept;
+		int OnMessage(std::unique_ptr<rpc::Message> & message);
 	private:
 		bool LateAwake() final;
 		void OnAppStop() final;
 		void OnRecord(json::w::Document &document) final;
-		void Invoke(const RpcMethodConfig * config, std::unique_ptr<rpc::Message> & message) noexcept;
+		void Invoke(const RpcMethodConfig * config, std::unique_ptr<rpc::Message> & message);
 	private:
 		int OnClient(std::unique_ptr<rpc::Message> & message);
-		int OnRequest(std::unique_ptr<rpc::Message> & message) noexcept;
+		int OnRequest(std::unique_ptr<rpc::Message> & message);
 		int OnBroadcast(std::unique_ptr<rpc::Message> & message);
     private:
 		unsigned int mSumCount;

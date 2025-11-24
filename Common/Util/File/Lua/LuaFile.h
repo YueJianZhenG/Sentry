@@ -10,9 +10,12 @@ namespace lua
 	namespace LuaFile
 	{
 		int Write(lua_State * L);
+		int Read(lua_State * lua);
 		int Find(lua_State * lua);
+		int Remove(lua_State * lua);
 		int IsExist(lua_State * lua);
 		int GetFiles(lua_State * lua);
+		int GetFileSize(lua_State * lua);
 		int GetFileName(lua_State * lua);
 		int GetLastWriteTime(lua_State * lua);
 	};

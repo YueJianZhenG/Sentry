@@ -7,15 +7,20 @@ namespace acs
 {
 	WaitLuaTaskSource::WaitLuaTaskSource()
 	{
-		this->ref = 0;
+		this->luaRef = 0;
+		this->valRef = 0;
 		this->mLua = nullptr;
 	}
 
 	WaitLuaTaskSource::~WaitLuaTaskSource()
 	{
-		if(this->ref > 0)
+		if(this->luaRef > 0)
 		{
-			lua_unref(this->mLua, this->ref);
+			lua_unref(this->mLua, this->luaRef);
+		}
+		if(this->valRef > 0)
+		{
+			lua_unref(this->mLua, this->valRef);
 		}
 	}
 
@@ -26,7 +31,9 @@ namespace acs
 		if(luaTaskSource != nullptr && luaTaskSource->ResumeTask())
 		{
 			luaTaskSource->mLua = lua;
-			luaTaskSource->ref = luaL_ref(lua, LUA_REGISTRYINDEX);
+			luaTaskSource->valRef = luaL_ref(lua, LUA_REGISTRYINDEX);
+			lua_pushthread(lua);
+			luaTaskSource->luaRef = luaL_ref(lua, LUA_REGISTRYINDEX); //保留lua的引用
 		}
 		return 0;
 	}

@@ -93,4 +93,10 @@ namespace acs
         }
 		return true;
     }
+
+	void ConfigComponent::OnDestroy()
+	{
+		this->mKeys.clear();
+		this->mConfigs.clear();
+	}
 }

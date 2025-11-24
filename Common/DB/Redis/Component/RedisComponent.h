@@ -38,12 +38,14 @@ namespace acs
 		std::unique_ptr<redis::Response> Run(const std::string & cmd, Args&& ... args) noexcept;
 	public:
 		bool Send(const RedisLuaData & data) noexcept;
-		bool Send(const RedisLuaData & data, int & taskId) noexcept;
+		bool Send(const RedisLuaData & data, int & taskId, unsigned int & timeout) noexcept;
+	public:
 		std::unique_ptr<redis::Response> CallLua(const RedisLuaData & data);
 		std::unique_ptr<json::r::Document> Call(const RedisLuaData & data);
 	public:
 		bool Del(const std::string & key);
 		bool LoadRedisScript(const std::string & dir);
+		const redis::Cluster & GetConfig() const { return this->mConfig; }
 		std::unique_ptr<redis::Response> Run(std::unique_ptr<redis::Request> & request) noexcept;
 		bool MakeLuaRequest(const RedisLuaData & data, std::unique_ptr<redis::Request>& request);
 	private:

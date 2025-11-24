@@ -14,24 +14,16 @@ namespace lua
 {
 	int lmysql::Run(lua_State* L)
 	{
-		static MysqlDBComponent* mysql = nullptr;
-		if(mysql == nullptr)
-		{
-			mysql = App::Get<MysqlDBComponent>();
-			if(mysql == nullptr)
-			{
-				luaL_error(L, "not find [MysqlDBComponent]");
-				return 0;
-			}
-		}
-		int rpcId = 0;
 		size_t size = 0;
-		lua_pushthread(L);
 		const char * sql = luaL_checklstring(L, 1, &size);
+		static MysqlDBComponent* mysql = App::Get<MysqlDBComponent>();
+
+		int rpcId = 0;
 		std::unique_ptr<mysql::Request> request = std::make_unique<mysql::Request>(sql, size);
 		{
 			mysql->Send(request, rpcId);
 		}
+		lua_pushthread(L);
 		return mysql->AddTask(new LuaMysqlTask(L, rpcId))->Await();
 	}
 }

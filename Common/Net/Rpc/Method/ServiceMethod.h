@@ -109,16 +109,25 @@ namespace acs
 
 		inline int Invoke(rpc::Message & message) final
 		{
-			if (!this->mHasUserId)
+			int code = XCode::Ok;
+			do
 			{
-				return (_o->*_func)();
+				if (!this->mHasUserId)
+				{
+					code = (_o->*_func)();
+					break;
+				}
+				long long userId = 0;
+				if(!message.ConstHead().Get(this->mKey, userId))
+				{
+					code = XCode::CallArgsError;
+					break;
+				}
+				code = (_o->*_objfunc)(userId);
 			}
-            long long userId = 0;
-            if(!message.GetHead().Get(this->mKey, userId))
-            {
-                return XCode::CallArgsError;
-            }
-			return (_o->*_objfunc)(userId);
+			while(false);
+			message.ClearHeadAndBody();
+			return code;
 		}
 	 private:
 		T* _o;
@@ -141,22 +150,31 @@ namespace acs
 	 public:
 		inline int Invoke(rpc::Message & message) final
 		{
-            std::unique_ptr<T1> request = std::make_unique<T1>();
-			if(!request->ParsePartialFromString(message.GetBody()))
+			int code = XCode::Ok;
+			do
 			{
-				return XCode::ParseMessageError;
+				std::unique_ptr<T1> request = std::make_unique<T1>();
+				if(!request->ParsePartialFromString(message.GetBody()))
+				{
+					code = XCode::ParseMessageError;
+					break;
+				}
+				if(!this->mHasUserId)
+				{
+					code = (_o->*_func)(*request);
+					break;
+				}
+				long long userId = 0;
+				if(!message.ConstHead().Get(this->mKey, userId))
+				{
+					code = XCode::CallArgsError;
+					break;
+				}
+				code = (_o->*_objfunc)(userId, *request);
 			}
-            message.Body()->clear();
-            if (!this->mHasUserId)
-			{
-				return (_o->*_func)(*request);
-			}
-            long long userId = 0;
-            if(!message.GetHead().Get(this->mKey, userId))
-            {
-                return XCode::CallArgsError;
-            }
-			return (_o->*_objfunc)(userId, *request);
+			while (false);
+			message.ClearHeadAndBody();
+			return code;
 		}
 	 private:
 		T* _o;
@@ -183,34 +201,36 @@ namespace acs
 	 public:
 		inline int Invoke(rpc::Message & message) final
 		{
-            std::unique_ptr<T1> request = std::make_unique<T1>();
-            std::unique_ptr<T2> response = std::make_unique<T2>();
-			if(!request->ParsePartialFromString(message.GetBody()))
+			int code = XCode::Ok;
+			std::unique_ptr<T1> request = std::make_unique<T1>();
+			std::unique_ptr<T2> response = std::make_unique<T2>();
+			do
 			{
-				return XCode::ParseMessageError;
+				if(!request->ParsePartialFromString(message.GetBody()))
+				{
+					code = XCode::ParseMessageError;
+					break;
+				}
+				if (!this->mHasUserId)
+				{
+					code = (_o->*_func)(*request, *response);
+					break;
+				}
+				long long userId = 0;
+				if (!message.ConstHead().Get(this->mKey, userId))
+				{
+					code = XCode::CallArgsError;
+					break;
+				}
+				code = (_o->*_objfunc)(userId, *request, *response);
 			}
-            message.Body()->clear();
-            if (this->mHasUserId)
-            {
-                long long userId = 0;
-                if (!message.GetHead().Get(this->mKey, userId))
-                {
-                    return XCode::CallArgsError;
-                }
-                int code = (_o->*_objfunc)(userId, *request, *response);
-                if (code == XCode::Ok && !response->SerializePartialToString(message.Body()))
-                {
-					return XCode::SerializationFailure;
-                }
+			while(false);
+			message.ClearHeadAndBody();
+			if(code == XCode::Ok)
+			{
 				message.SetProto(rpc::proto::pb);
-                return code;
-            }
-			int code = (_o->*_func)(*request, *response);
-			if (code == XCode::Ok && !response->SerializePartialToString(message.Body()))
-			{
-				return XCode::SerializationFailure;
+				response->SerializePartialToString(message.Body());
 			}
-			message.SetProto(rpc::proto::pb);
 			return code;
 		}
 	 private:
@@ -237,28 +257,30 @@ namespace acs
 	 public:
 		inline int Invoke(rpc::Message & message) final
 		{
+			int code = XCode::Ok;
 			std::unique_ptr<T1> response = std::make_unique<T1>();
-            if (this->mHasUserId)
+			do
 			{
-                long long userId = 0;
-                if(!message.GetHead().Get(this->mKey, userId))
-                {
-                    return XCode::CallArgsError;
-                }
-				int code = (_o->*_objfunc)(userId, *response);
-				if(code == XCode::Ok && !response->SerializePartialToString(message.Body()))
+				if(!this->mHasUserId)
 				{
-					return XCode::SerializationFailure;
+					code = (_o->*_func)(*response);
+					break;
 				}
-				message.SetProto(rpc::proto::pb);
-				return code;
+				long long userId = 0;
+				if(!message.ConstHead().Get(this->mKey, userId))
+				{
+					code = XCode::CallArgsError;
+					break;
+				}
+				code = (_o->*_objfunc)(userId, *response);
 			}
-			int code = (_o->*_func)(*response);
-			if(code == XCode::Ok && !response->SerializePartialToString(message.Body()))
+			while(false);
+			message.ClearHeadAndBody();
+			if(code == XCode::Ok)
 			{
-				return XCode::SerializationFailure;
+				message.SetProto(rpc::proto::pb);
+				response->SerializePartialToString(message.Body());
 			}
-			message.SetProto(rpc::proto::pb);
 			return code;
 		}
 	 private:
@@ -324,12 +346,21 @@ namespace acs
 	public:
 		inline int Invoke(rpc::Message& message) final
 		{
+			int code = XCode::Ok;
 			std::unique_ptr<json::r::Document> request = std::make_unique<json::r::Document>();
-			if(!request->Decode(message.GetBody(), YYJSON_READ_INSITU))
+			do
 			{
-				return XCode::ParseJsonFailure;
+				const std::string & json = message.GetBody();
+				if(!request->Decode(json, YYJSON_READ_INSITU))
+				{
+					code = XCode::ParseJsonFailure;
+					break;
+				}
+				code = (_o->*_func)(*request);
 			}
-			return (_o->*_func)(*request);
+			while(false);
+			message.ClearHeadAndBody();
+			return code;
 		}
 	private:
 		T* _o;
@@ -350,17 +381,27 @@ namespace acs
 	public:
 		inline int Invoke(rpc::Message& message) final
 		{
+			int code = XCode::Ok;
 			std::unique_ptr<json::r::Document> request = std::make_unique<json::r::Document>();
-			if(!request->Decode(message.GetBody(), YYJSON_READ_INSITU))
+			do
 			{
-				return XCode::ParseJsonFailure;
+				const std::string & json = message.GetBody();
+				if(!request->Decode(json, YYJSON_READ_INSITU))
+				{
+					code = XCode::ParseJsonFailure;
+					break;
+				}
+				long long userId = 0;
+				if(!message.ConstHead().Get(this->mKey, userId))
+				{
+					code = XCode::CallArgsError;
+					break;
+				}
+				code = (_o->*_func)(userId, *request);
 			}
-			long long userId = 0;
-			if(!message.GetHead().Get(this->mKey, userId))
-			{
-				return XCode::CallArgsError;
-			}
-			return (_o->*_func)(userId, *request);
+			while(false);
+			message.ClearHeadAndBody();
+			return code;
 		}
 	private:
 		T* _o;
@@ -381,12 +422,17 @@ namespace acs
 	public:
 		inline int Invoke(rpc::Message& message) final
 		{
+			int code = XCode::Ok;
 			const std::string & body = message.GetBody();
 			std::unique_ptr<bson::r::Document> request = std::make_unique<bson::r::Document>();
+			do
 			{
 				request->Init(body.c_str());
+				code = (_o->*_func)(*request);
 			}
-			return (_o->*_func)(*request);
+			while(false);
+			message.ClearHeadAndBody();
+			return code;
 		}
 	private:
 		T* _o;
@@ -407,18 +453,26 @@ namespace acs
 	public:
 		inline int Invoke(rpc::Message& message) final
 		{
+			int code = XCode::Ok;
 			std::unique_ptr<json::r::Document> request = std::make_unique<json::r::Document>();
 			std::unique_ptr<json::w::Document> response = std::make_unique<json::w::Document>();
-			if(!request->Decode(message.GetBody(), YYJSON_READ_INSITU))
+			do
 			{
-				return XCode::ParseJsonFailure;
+				const std::string & json = message.GetBody();
+				if(!request->Decode(json, YYJSON_READ_INSITU))
+				{
+					code = XCode::ParseJsonFailure;
+					break;
+				}
+				code = (_o->*_func)(*request, *response);
 			}
-			int code = (_o->*_func)(*request, *response);
-			if(code == XCode::Ok && !response->Serialize(message.Body()))
+			while(false);
+			message.ClearHeadAndBody();
+			if(code == XCode::Ok)
 			{
-				return XCode::SerializationFailure;
+				message.SetProto(rpc::proto::json);
+				response->Serialize(message.Body());
 			}
-			message.SetProto(rpc::proto::json);
 			return code;
 		}
 	private:
@@ -440,12 +494,20 @@ namespace acs
 	public:
 		inline int Invoke(rpc::Message& message) final
 		{
+			int code = XCode::Ok;
 			std::unique_ptr<json::r::Document> request = std::make_unique<json::r::Document>();
-			if(!request->Decode(message.GetBody(), YYJSON_READ_INSITU))
+			do
 			{
-				return XCode::ParseJsonFailure;
+				const std::string & json = message.GetBody();
+				if(!request->Decode(json, YYJSON_READ_INSITU))
+				{
+					code = XCode::ParseJsonFailure;
+					break;
+				}
+				code = (_o->*_func)(*request, message);
 			}
-			return (_o->*_func)(*request, message);
+			while(false);
+			return code;
 		}
 	private:
 		T* _o;
@@ -474,8 +536,12 @@ namespace acs
 			{
 				request->Init(body.c_str());
 				code = (_o->*_func)(*request, *response);
-				const char * bson = response->Serialize(count);
-				message.SetContent(rpc::proto::bson, bson, count);
+				{
+					message.ClearHeadAndBody();
+					const char * bson = response->Serialize(count);
+					message.SetContent(rpc::proto::bson, bson, count);
+				}
+
 			}
 			return code;
 		}
@@ -501,11 +567,14 @@ namespace acs
 			std::unique_ptr<json::w::Document> response = std::make_unique<json::w::Document>();
 			{
 				int code = (_o->*_func)(*response);
-				if(code == XCode::Ok && !response->Serialize(message.Body()))
 				{
-					return XCode::SerializationFailure;
+					message.ClearHeadAndBody();
+					if(code == XCode::Ok)
+					{
+						message.SetProto(rpc::proto::json);
+						response->Serialize(message.Body());
+					}
 				}
-				message.SetProto(rpc::proto::json);
 				return code;
 			}
 		}
@@ -531,11 +600,14 @@ namespace acs
 			std::unique_ptr<json::w::Document> response = std::make_unique<json::w::Document>();
 			{
 				int code = (_o->*_func)(message.GetBody(), *response);
-				if(code == XCode::Ok && !response->Serialize(message.Body()))
 				{
-					return XCode::SerializationFailure;
+					message.ClearHeadAndBody();
+					if(code == XCode::Ok)
+					{
+						message.SetProto(rpc::proto::json);
+						response->Serialize(message.Body());
+					}
 				}
-				message.SetProto(rpc::proto::json);
 				return code;
 			}
 		}
@@ -563,7 +635,6 @@ namespace acs
 			{
 				return XCode::ParseMessageError;
 			}
-			message.Body()->clear();
 			return (_o->*_func)(*request, message);
 		}
 	private:

@@ -74,7 +74,7 @@ namespace acs
 
 	bool CsvTextConfig::ReloadConfig()
 	{
-		long long writeTime =help::fs::GetLastWriteTime(this->mPath);
+		long long writeTime =help::fs::GetLastWriteTime(this->mPath.c_str());
 		if(writeTime == this->mLastWriteTime)
 		{
 			return true;
@@ -175,7 +175,7 @@ namespace acs
 			}
 		}
 		this->mPath = path;
-		this->mLastWriteTime = help::fs::GetLastWriteTime(path);
+		this->mLastWriteTime = help::fs::GetLastWriteTime(path.c_str());
 		return true;
 	}
 }

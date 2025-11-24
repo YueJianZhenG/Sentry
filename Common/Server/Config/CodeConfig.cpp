@@ -6,7 +6,6 @@
 #include "Util/Tools/String.h"
 namespace acs
 {
-
 	bool CodeConfig::OnLoadLine(const CsvLineData& lineData)
 	{
 		std::unique_ptr<CodeLineConfig> lineConfig = std::make_unique<CodeLineConfig>();
@@ -15,17 +14,21 @@ namespace acs
 			{
 				return false;
 			}
-			lineConfig->Desc += lineConfig->Name.front();
-			for(size_t index = 1; index < lineConfig->Name.size(); index++)
+			if(!lineData.Get("Desc", lineConfig->Desc))
 			{
-				char cc = lineConfig->Name[index];
-				if(std::isupper(cc))
-				{
-					lineConfig->Desc += " ";
-				}
-				lineConfig->Desc += cc;
+				return false;
 			}
-			help::Str::Tolower(lineConfig->Desc);
+//			lineConfig->Desc += lineConfig->Name.front();
+//			for(size_t index = 1; index < lineConfig->Name.size(); index++)
+//			{
+//				char cc = lineConfig->Name[index];
+//				if(std::isupper(cc))
+//				{
+//					lineConfig->Desc += " ";
+//				}
+//				lineConfig->Desc += cc;
+//			}
+//			help::Str::Tolower(lineConfig->Desc);
 			lineConfig->Code = (int)this->mConfigs.size();
 		}
 		this->mConfigs.emplace(lineConfig->Code, std::move(lineConfig));

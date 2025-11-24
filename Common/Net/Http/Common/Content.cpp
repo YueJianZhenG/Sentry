@@ -2,71 +2,40 @@
 // Created by yy on 2023/11/19.
 //
 
-#include"Content.h"
-#include<sstream>
-#include"Yyjson/Lua/ljson.h"
-#include"Util/Tools/Math.h"
-#include"fmt.h"
+#include "Content.h"
+#include <sstream>
+#include "Yyjson/Lua/ljson.h"
+#include "Util/Tools/Math.h"
+#include "fmt.h"
+#include "Url.h"
 #include "Util/File/DirectoryHelper.h"
-#include"Util/File/FileHelper.h"
-#include"Lua/Engine/LuaInclude.h"
-#include"Util/Tools/String.h"
-#include "Core/Map/HashMap.h"
+#include "Util/File/FileHelper.h"
+#include "Lua/Engine/LuaInclude.h"
+#include "Util/Tools/String.h"
 #include "Util/Tools/Guid.h"
 
 namespace http
 {
-	std::string UrlDecode(const std::string& url)
-	{
-		std::ostringstream decoded;
-		for (size_t i = 0; i < url.size(); ++i)
-		{
-			if (url[i] == '%' && i + 2 < url.size())
-			{
-				std::istringstream hex(url.substr(i + 1, 2));
-				int value;
-				if (hex >> std::hex >> value)
-				{
-					decoded << static_cast<char>(value);
-					i += 2;
-				}
-			}
-			else if (url[i] == '+')
-			{
-				decoded << ' ';
-			}
-			else
-			{
-				decoded << url[i];
-			}
-		}
-		return decoded.str();
-	}
-
-
 	bool FromContent::OnDecode()
 	{
-		std::string encoded = UrlDecode(this->mContent);
+		std::vector<std::string> result;
+		help::Str::Split(this->mContent, '&', result);
+		for (const std::string& filed: result)
 		{
-			std::vector<std::string> result;
-			help::Str::Split(encoded, '&', result);
-			for (const std::string& filed: result)
+			size_t pos1 = filed.find('=');
+			if (pos1 == std::string::npos)
 			{
-				size_t pos1 = filed.find('=');
-				if (pos1 == std::string::npos)
+				return false;
+			}
+			std::string key = filed.substr(0, pos1);
+			std::string val = filed.substr(pos1 + 1);
+			if (!key.empty() && !val.empty())
+			{
+				if (val.find("%2F") != std::string::npos)
 				{
-					return false;
+					help::Str::Replace(val, "%2F", "/");
 				}
-				std::string key = filed.substr(0, pos1);
-				std::string val = filed.substr(pos1 + 1);
-				if (!key.empty() && !val.empty())
-				{
-					if (val.find("%2F") != std::string::npos)
-					{
-						help::Str::ReplaceString(val, "%2F", "/");
-					}
-					this->mParameters.emplace(key, val);
-				}
+				this->mParameters.emplace(key, val);
 			}
 		}
 		return true;
@@ -80,7 +49,7 @@ namespace http
 		for (; iter != this->mParameters.end(); ++iter, index++)
 		{
 			const std::string& key = iter->second;
-			if (key == http::query::Permission || key == http::query::UserId || key == http::query::ClubId)
+			if (key == http::query::Access || key == http::query::UserId)
 			{
 				continue;
 			}
@@ -118,6 +87,10 @@ namespace http
 
 	bool FromContent::Add(const std::string& k, const std::string& v)
 	{
+		if(k.empty() || v.empty())
+		{
+			return false;
+		}
 		auto iter = this->mParameters.find(k);
 		if (iter != this->mParameters.end())
 		{
@@ -193,7 +166,10 @@ namespace http
 
 	void FromContent::OnWriteHead(std::ostream& os)
 	{
+		std::string content = this->Serialize();
+		this->mContent = http::url::encode(content);
 		os << http::Header::ContentType << ": " << http::Header::FORM << "\r\n";
+		os << http::Header::ContentLength << ": " << this->mContent.size() << "\r\n";
 	}
 
 	int FromContent::OnRecvMessage(std::istream& is, size_t size)
@@ -212,20 +188,29 @@ namespace http
 		return tcp::read::some;
 	}
 
+	int FromContent::OnWriteBody(std::ostream& os)
+	{
+		os.write(this->mContent.c_str(), (std::streamsize)this->mContent.size());
+		return 0;
+	}
+
+
 	std::string FromContent::Serialize() const
 	{
 		size_t index = 0;
-		std::stringstream ss;
+		std::string result;
 		auto iter = this->mParameters.begin();
 		for (; iter != this->mParameters.end(); ++iter, index++)
 		{
-			ss << iter->first << "=" << iter->second;
-			if (index < this->mParameters.size() - 1)
+			if(!result.empty())
 			{
-				ss << "&";
+				result += '&';
 			}
+			result.append(iter->first);
+			result += '=';
+			result.append(iter->second);
 		}
-		return ss.str();
+		return result;
 	}
 }
 
@@ -418,14 +403,19 @@ namespace http
 
 	int FileContent::OnRecvMessage(std::istream& is, size_t size)
 	{
-		std::unique_ptr<char[]> buff(new char[size]);
-		size_t count = is.readsome(buff.get(), size);
-		if (count > 0)
+		size_t count = 0;
+		char buffer[128] = { 0};
+		do
 		{
-			this->mFileSize += count;
-			this->mFile.write(buff.get(), count);
-			this->mFile.flush();
+			count = is.readsome(buffer, sizeof(buffer));
+			if(count > 0)
+			{
+				this->mFileSize += count;
+				this->mFile.write(buffer, count);
+			}
 		}
+		while(count > 0);
+		this->mFile.flush();
 		return tcp::read::some;
 	}
 
@@ -457,7 +447,12 @@ namespace http
 			return false;
 		}
 		this->mPath = path;
-		help::fs::GetFileSize(this->mPath, this->mFileSize);
+		std::string suffix;
+		help::fs::GetFileSize(path, this->mFileSize);
+		if(this->mType.empty() && help::fs::GetFileType(path, suffix))
+		{
+			this->mType = http::GetContentType(suffix);
+		}
 		return true;
 	}
 
@@ -476,6 +471,7 @@ namespace http
 		{
 			os.write(buff, size);
 			this->mSendSize += size;
+			//std::cout << this->mSendSize << ":" << this->mFileSize << " => " << this->mFileSize - this->mSendSize << std::endl;
 			return this->mFileSize - this->mSendSize;
 		}
 		return 0;
@@ -484,85 +480,76 @@ namespace http
 
 namespace http
 {
-	bool TransferContent::OpenFile(const std::string& path, const std::string& t)
+
+	void ChunkedContent::WriteToLua(lua_State* l)
 	{
-		this->mType = t;
-		this->mPath = path;
-		this->mFile.open(path, std::ios::in);
-		return this->mFile.is_open();
+		lua_pushlstring(l, this->mContent.c_str(), this->mContent.size());
 	}
 
-	void TransferContent::WriteToLua(lua_State* l)
+	bool ChunkedContent::OnDecode()
 	{
-		lua_pushlstring(l, this->mPath.c_str(), this->mPath.size());
-	}
-
-	bool TransferContent::OnDecode()
-	{
-		this->mFile.flush();
-		this->mFile.close();
 		return true;
 	}
 
-	int TransferContent::OnRecvMessage(std::istream& buffer, size_t size)
+	int ChunkedContent::OnRecvMessage(std::istream& buffer, size_t size)
 	{
-		if (this->mContSize == 0)
+		this->mIndex++;
+		if(this->mIndex % 2 != 0)
 		{
-			std::string lineData;
-			if (!std::getline(buffer, lineData))
+			std::string line;
+			std::getline(buffer, line);
+			if(line.back() == '\r')
 			{
-				return tcp::read::decode_error;
+				line.pop_back();
 			}
-			if (lineData.empty())
-			{
-				return tcp::read::line;
-			}
-			if (!lineData.empty() && lineData.back() == '\r')
-			{
-				lineData.pop_back();
-			}
-			this->mContSize = std::stoul(lineData, nullptr, 16);
-			if (this->mContSize == 0)
+			if(line.empty())
 			{
 				return tcp::read::done;
 			}
-			return this->mContSize + 2;
+			this->mCount = std::stoul(line, nullptr, 16);
+			return (int)this->mCount + 2;
 		}
-		else
+		std::unique_ptr<char[]> buff = std::make_unique<char[]>(size);
 		{
-			std::unique_ptr<char[]> readBuffer(new char[this->mContSize]);
-			int count = (int)buffer.readsome(readBuffer.get(), this->mContSize);
-			{
-				this->mFile.write(readBuffer.get(), count);
-				this->mFile.flush();
-			}
-			buffer.ignore(2);
-			this->mContSize = 0;
-			return tcp::read::line;
+			size_t count = buffer.readsome(buff.get(), size);
+			this->mContent.append(buff.get(), count);
 		}
+		if(size < this->mCount)
+		{
+			this->mIndex--;
+			this->mCount -= size;
+			return this->mCount;
+		}
+		return tcp::read::line;
 	}
 
-	void TransferContent::OnWriteHead(std::ostream& os)
+	void ChunkedContent::OnWriteHead(std::ostream& os)
 	{
-		//os << http::Header::TransferEncoding << ": chunked" << http::CRLF;
-		os << http::Header::ContentType << fmt::format(": {}; charset=utf-8\r\n", this->mType);
+		os << http::Header::TransferEncoding << ": chunked" << http::CRLF;
+		os << http::Header::ContentType << fmt::format(": {}; charset=utf-8\r\n", this->mContType);
 	}
 
-	int TransferContent::OnWriteBody(std::ostream& os)
+	void ChunkedContent::SetContent(const std::string& content)
 	{
-		thread_local static char input[2048] = { 0 };
-		size_t size = this->mFile.read(input, sizeof(input)).gcount();
+		this->mContent = content;
+		this->mContType = http::Header::TEXT;
+	}
+
+	void ChunkedContent::SetContent(const std::string& type, const std::string& content)
+	{
+		this->mContType = type;
+		this->mContent = content;
+	}
+
+	int ChunkedContent::OnWriteBody(std::ostream& os)
+	{
+		size_t size = this->mContent.size();
 		if (size > 0)
 		{
 			os << std::hex << size << "\r\n";
-			os.write(input, size) << "\r\n";
-			if (!this->mFile.eof())
-			{
-				return 1;
-			}
+			os.write(this->mContent.c_str(), size) << "\r\n";
 		}
-		os << "0\r\n\r\n";
-		this->mFile.close();
+		os << "\r\n";
 		return 0;
 	}
 }
@@ -584,7 +571,7 @@ namespace http
 
 	bool MultipartFromContent::Add(const std::string& k, const std::string& v)
 	{
-		if (!help::fs::FileIsExist(v))
+		if (!help::fs::FileIsExist(v.c_str()))
 		{
 			auto iter = this->mFromData.find(k);
 			if (iter != this->mFromData.end())
@@ -666,7 +653,7 @@ namespace http
 
 	void MultipartFromContent::OnWriteHead(std::ostream& os)
 	{
-		this->mBoundary = fmt::format("----{}", help::ID::Create());
+		this->mBoundary = fmt::format("----{}", help::ID::Gen());
 		os << http::Header::ContentType << ": " << "multipart/form-data; boundary=" << this->mBoundary << "\r\n";
 		os << http::Header::ContentLength << ": " << this->GetContentLength() << "\r\n";
 
@@ -721,7 +708,7 @@ namespace http
 			size_t count = buffer.readsome(buff.get(), size);
 			if (count > 0)
 			{
-				if (strstr(buff.get(), this->mBoundary.c_str()) != NULL)
+				if (strstr(buff.get(), this->mBoundary.c_str()) != nullptr)
 				{
 					this->mFile.close();
 					return tcp::read::line;
@@ -753,14 +740,14 @@ namespace http
 				size_t name_pos = line.find("name=\"");
 				if (name_pos != std::string::npos)
 				{
-					size_t name_end = line.find("\"", name_pos + 6);
+					size_t name_end = line.find('\"', name_pos + 6);
 					this->mFieldName = line.substr(name_pos + 6, name_end - name_pos - 6);
 				}
 
 				size_t filename_pos = line.find("filename=\"");
 				if (filename_pos != std::string::npos)
 				{
-					size_t filename_end = line.find("\"", filename_pos + 10);
+					size_t filename_end = line.find('\"', filename_pos + 10);
 					this->mFileName = line.substr(filename_pos + 10, filename_end - filename_pos - 10);
 				}
 				return tcp::read::line;
@@ -771,7 +758,6 @@ namespace http
 				std::string director;
 				this->mFromData.emplace(this->mFieldName, this->mFileName);
 				this->mPath = fmt::format("{}/{}", this->mDir, this->mFileName);
-
 				if (help::dir::GetDirByPath(this->mPath, director))
 				{
 					help::dir::MakeDir(director);
@@ -832,5 +818,26 @@ namespace http
 		}
 		return tcp::read::some;
 	}
+
+}
+
+namespace http
+{
+	int StringContent::OnWriteBody(std::ostream& os)
+	{
+		os.write(this->mBody.c_str(), this->mBody.size());
+		return 0;
+	}
+
+	void StringContent::WriteToLua(lua_State* L)
+	{
+		lua_pushlstring(L, this->mBody.c_str(), this->mBody.size());
+	}
+
+	int StringContent::OnRecvMessage(std::istream& is, size_t size)
+	{
+		return 0;
+	}
+
 
 }

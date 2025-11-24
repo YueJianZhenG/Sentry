@@ -1,6 +1,5 @@
 #pragma once
 
-#include "LuaInclude.h"
 #include "LuaParameter.h"
 namespace Lua
 {

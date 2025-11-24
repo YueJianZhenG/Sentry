@@ -233,7 +233,7 @@ namespace rpc
 					}
 #ifdef __DEBUG__
 					std::string address = this->GetAddress();
-					request->TempHead().Add(rpc::Header::from_addr, address);
+					request->GetHead().Add(rpc::Header::from_addr, address);
 #endif
 					asio::post(this->mMainContext, [this, request] { this->mComponent->OnMessage(request, nullptr); });
 					break;
@@ -277,8 +277,7 @@ namespace rpc
 		this->ReadLength(rpc::RPC_PACK_HEAD_LEN);
 #else
 		Asio::Context & context = this->mSocket->GetContext();
-		std::shared_ptr<Client> self = this->shared_from_this();
-		asio::post(context, [this, self]
+		asio::post(context, [this, self = this->shared_from_this()]
 		{
 			this->mSocket->SetOption(tcp::OptionType::NoDelay, true);
 			this->mSocket->SetOption(tcp::OptionType::KeepAlive, true);

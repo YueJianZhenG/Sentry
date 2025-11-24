@@ -1,0 +1,62 @@
+{
+	"name" : "rpc_record_list",
+	"fields" : {
+		"uuid" : {
+			"type" : "BIGINT",
+			"notnull" : true,
+			"primary_key": true,
+			"comment" : "唯一ID"
+		},
+		"func" : {
+			"type" : "VARCHAR(64)",
+			"notnull" : true,
+			"comment" : "方法名字"
+		},
+		"node_id" : {
+			"type" : "INT",
+			"notnull" : true,
+			"comment" : "节点ID"
+		},
+		"request" : {
+			"type" : "TEXT",
+			"notnull" : true,
+			"default" : "",
+			"comment" : "请求参数"
+		},
+		"code" : {
+			"type" : "INT",
+			"notnull" : true,
+			"default" : 1,
+			"comment" : "错误码"
+		},
+		"desc" : {
+			"type" : "VARCHAR(128)",
+			"notnull" : true,
+			"default" : "",
+			"comment" : "描述"
+		},
+		"response" : {
+			"type" : "TEXT",
+			"notnull" : true,
+			"default" : "",
+			"comment" : "返回参数"
+		},
+		"cost_ms" : {
+			"type" : "INT",
+			"default" : 0,
+			"notnull" : true,
+			"comment" : "消耗时间"
+		},
+		"begin_time" : {
+			"type" : "BIGINT",
+			"notnull" : true,
+			"comment" : "开始时间"
+		},
+		"end_time" : {
+			"type" : "BIGINT",
+			"notnull" : true,
+			"default" : 0,
+			"comment" : "结束时间"
+		}
+	}
+}

@@ -2,12 +2,13 @@
 // Created by zmhy0073 on 2022/1/8.
 //
 
-#include"LuaServiceTaskSource.h"
-#include"Lua/Engine/UserDataParameter.h"
-#include"Proto/Lua/Message.h"
-#include"XCode/XCode.h"
-#include"Entity/Actor/App.h"
-#include"Yyjson/Lua/ljson.h"
+#include "LuaServiceTaskSource.h"
+#include "Lua/Engine/UserDataParameter.h"
+#include "Proto/Lua/Message.h"
+#include "XCode/XCode.h"
+#include "Entity/Actor/App.h"
+#include "Yyjson/Lua/ljson.h"
+#include "Server/Config/CodeConfig.h"
 namespace acs
 {
 	LuaServiceTaskSource::LuaServiceTaskSource(http::Response* message)
@@ -42,8 +43,8 @@ namespace acs
 		}
 		if (lua_istable(lua, 3))
 		{
-			std::string pb;
-			if (this->mRpcData->TempHead().Get("pb", pb))
+			const std::string & pb = this->mRpcData->GetAttach();
+			if (!pb.empty())
 			{
 				this->mRpcData->SetProto(rpc::proto::pb);
 				pb::Message* message = App::GetProto()->Temp(pb);
@@ -70,8 +71,10 @@ namespace acs
 		{
 			size_t len = 0;
 			const char* str = lua_tolstring(lua, 3, &len);
-			this->mRpcData->Body()->append(str, len);
-			this->mRpcData->SetProto(rpc::proto::string);
+			{
+				this->mRpcData->Body()->append(str, len);
+				this->mRpcData->SetProto(rpc::proto::string);
+			}
 		}
 	}
 
@@ -94,26 +97,49 @@ namespace acs
 			Lua::UserDataParameter::Read<LuaServiceTaskSource*>(lua, 1);
 		if (luaServiceTaskSource->mHttpData != nullptr)
 		{
-			luaServiceTaskSource->mCode = (int)luaL_checkinteger(lua, 2);
-			if(luaServiceTaskSource->mCode == XCode::Ok)
+			if(lua_isinteger(lua, 2))
 			{
+				json::w::Document document;
+				int code = (int)luaL_checkinteger(lua, 2);
+				document.Add("code", code);
+				if(code != XCode::Ok)
+				{
+					document.Add("error", CodeConfig::Inst()->GetDesc(code));
+				}
 				if (lua_istable(lua, 3))
 				{
 					lua::JsonValue jsonValue(true);
-					lua::yyjson::read(lua, -1, jsonValue);
+					lua::yyjson::read(lua, 3, jsonValue);
 					{
-						json::w::Document document;
-						document.Add("code", XCode::Ok);
 						document.Add("data", jsonValue.val);
-						luaServiceTaskSource->mHttpData->Json(document);
 					}
 				}
 				else if (lua_isstring(lua, 3))
 				{
 					size_t size = 0;
-					const char* str = luaL_checklstring(lua, -1, &size);
-					luaServiceTaskSource->mHttpData->Text(str, size);
+					const char* str = lua_tolstring(lua, 3, &size);
+					document.Add("data", str, size);
 				}
+				else if(lua_isinteger(lua, 3))
+				{
+					document.Add("data", lua_tointeger(lua, 3));
+				}
+				else if(lua_isnumber(lua, 3))
+				{
+					document.Add("data", lua_tonumber(lua, 3));
+				}
+				else if(lua_isboolean(lua, 3))
+				{
+					document.Add("data", (bool)lua_toboolean(lua, 3));
+				}
+				luaServiceTaskSource->mCode = code;
+				luaServiceTaskSource->mHttpData->SetContent(document);
+			}
+			else if(lua_isstring(lua, 2))
+			{
+				size_t size = 0;
+				const char* str = lua_tolstring(lua, 3, &size);
+				luaServiceTaskSource->mHttpData->Text(str, size);
 			}
 		}
 		luaServiceTaskSource->mTaskSource.SetResult();

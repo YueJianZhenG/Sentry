@@ -84,6 +84,20 @@ end
 
 function Main:OnComplete()
 
+    local oss = require("ali.oss")
+
+    --local res = oss.sign({
+    --    file_name = "kabi/bg",
+    --    file_type = "image/png",
+    --    max_length = 1024 * 1024 * 5,
+    --    expiration = os.time() + 10,
+    --    limit_type = { "image/png"},
+    --    upload_dir = ""
+    --})
+    --table.print(res)
+    local path = "C:/Users/64658/Desktop/project/美术切图/主界面/worldmap.jpg";
+    table.print(oss.upload("game-huanhu", "C:/Users/64658/Documents/huanhu/bg.png", "kabi/bg.png"))
+
     --self:InsertData()
     --local tab = "user_list"
     --local pipeline = {
@@ -286,9 +300,9 @@ function Main:OnComplete()
     --print(mysql:FindOne("user_info_list", { user_id = 10000 }, {"user_id", "amount"}))
     --print(mysql:FindOne("user_info_list", { user_id = 10004 }, {"user_id", "amount"}))
 
-    local filter = { user_id = 10004 }
-    table.print(mysql:Func("user_info_list", "COUNT", "*", "amount>0"))
-    table.print(mysql:Func("user_info_list", "SUM", "amount", nil, "city"))
+    --local filter = { user_id = 10004 }
+    --table.print(mysql:Func("user_info_list", "COUNT", "*", "amount>0"))
+    --table.print(mysql:Func("user_info_list", "SUM", "amount", nil, "city"))
     --table.print(msyql:RunInRead("SELECT SUM(amount) AS amount,COUNT(*) AS count,city FROM user_info_list GROUP BY city"))
     --table.print(pgsql:RunInRead(string.format("SELECT city,SUM(amount) AS amount FROM user_info_list WHERE amount>0 GROUP BY city ORDER BY amount DESC")))
     --table.print(pgsql:Find("user_info_list", { user_id = { 10000, 10004, 10005}}, { "nick", "user_id", "amount"}))

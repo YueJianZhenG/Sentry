@@ -78,8 +78,8 @@ namespace mongo
 #endif
     {
     public:
-		Response(std::string  cmd);
-		Response(int id, std::string  cmd);
+		explicit Response(std::string cmd);
+		Response(int id, std::string cmd);
     public:
 		const Head & GetHead() const { return this->mHead;}
 		inline int RpcId() const { return this->mHead.responseTo; }

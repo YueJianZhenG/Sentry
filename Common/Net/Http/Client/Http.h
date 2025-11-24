@@ -95,16 +95,12 @@ inline const char* HttpStatusToString(const HttpStatus& s)
 
 namespace http
 {
-	constexpr int PermissUser = 1;    //用户权限
-	constexpr int PermissCreator = 8; //主创
-	constexpr int PermissCharge = 9;	//商户
-	constexpr int PermissPersonCharge = 10;	//主理人
-	constexpr int PermissOperate = 20; //运营者
-	constexpr int PermissAdmin = 100; //管理员权限
+	constexpr int AccessUser = 1;    //普通用户
+	constexpr int AccessAdmin = 100; //管理员权限
 
-	constexpr const char* CRLF = "\r\n";
-	constexpr const char* CRLF2 = "\r\n\r\n";
-	constexpr const char* Version = "HTTP/1.1";
+	const std::string CRLF = "\r\n";
+	const std::string CRLF2 = "\r\n\r\n";
+	const std::string Version = "HTTP/1.1";
 	constexpr unsigned int BodyMaxCount = 1024 * 10;
 
 	enum ContentType
@@ -114,59 +110,59 @@ namespace http
 
 	namespace query
 	{
-		constexpr const char * UserId = "USER_ID";
-		constexpr const char * ClubId = "CLUB_ID";
-		constexpr const char * Permission = "PERMISSION";
+		const std::string UserId = "USER_ID";
+		const std::string Access = "ACCESS";
 	}
 
 	namespace Header
 	{
-		constexpr const char * RealIp = "x-real-ip";
-//		constexpr const char * Permission = "X-Permission";
-//		constexpr const char * OpenId = "X-Open-ID";
-		constexpr const char* Auth = "Authorization";
-		constexpr const char* Token = "Access-Token";
-		constexpr const char* SetCookie = "Set-Cookie";
-		constexpr const char* Connection = "Connection";
-		constexpr const char* ContentType = "Content-Type";
-		constexpr const char* ContentLength = "Content-Length";
-		constexpr const char* ContentEncoding = "Content-Encoding";
-		constexpr const char* TransferEncoding = "Transfer-Encoding";
-		constexpr const char* AccessControlAllowOrigin = "Access-Control-Allow-Origin";
-		constexpr const char * ContentDisposition = "Content-Disposition";
+		const std::string RealIp = "x-real-ip";
+		const std::string ProxyIP = "x-forwarded-for";
+//		const std::string Permission = "X-Permission";
+//		const std::string OpenId = "X-Open-ID";
+		const std::string Auth = "Authorization";
+		const std::string Token = "Access-Token";
+		const std::string SetCookie = "Set-Cookie";
+		const std::string Connection = "Connection";
+		const std::string ContentType = "Content-Type";
+		const std::string ContentLength = "Content-Length";
+		const std::string ContentEncoding = "Content-Encoding";
+		const std::string TransferEncoding = "Transfer-Encoding";
+		const std::string AccessControlAllowOrigin = "Access-Control-Allow-Origin";
+		const std::string ContentDisposition = "Content-Disposition";
 
-		constexpr const char* Close = "close";
-		constexpr const char* KeepAlive = "keep-alive";
+		const std::string Close = "close";
+		const std::string KeepAlive = "keep-alive";
 
-		constexpr const char* CSS = "text/css";
-		constexpr const char* LUA = "text/lua";
-		constexpr const char* HTML = "text/html";
-		constexpr const char* JS = "application/javascript";
+		const std::string CSS = "text/css";
+		const std::string LUA = "text/lua";
+		const std::string HTML = "text/html";
+		const std::string JS = "application/javascript";
 
-		constexpr const char* MPEG = "audio/mpeg";
-		constexpr const char* WAV = "audio/wav";
+		const std::string MPEG = "audio/mpeg";
+		const std::string WAV = "audio/wav";
 
-		constexpr const char* JPG = "image/jpg";
-		constexpr const char* JPEG = "image/jpeg";
-		constexpr const char* PNG = "image/png";
-		constexpr const char* GIF = "image/gif";
-		constexpr const char* ICO = "image/x-icon";
+		const std::string JPG = "image/jpg";
+		const std::string JPEG = "image/jpeg";
+		const std::string PNG = "image/png";
+		const std::string GIF = "image/gif";
+		const std::string ICO = "image/x-icon";
 
-		constexpr const char* MP4 = "video/mp4";
-		constexpr const char* AVI = "video/avi";
+		const std::string MP4 = "video/mp4";
+		const std::string AVI = "video/avi";
 
-		constexpr const char * ZIP = "application/zip";
+		const std::string ZIP = "application/zip";
 
-		constexpr const char* TEXT = "text/plain";
-		constexpr const char* JSON = "application/json";
-		constexpr const char* PB = "application/x-protobuf";
-		constexpr const char* XML = "application/xml";
-		constexpr const char* XHTML = "application/xhtml+xml";
-		constexpr const char* FORM = "application/x-www-form-urlencoded";
-		constexpr const char* PDF = "application/pdf";
-		constexpr const char* WORD = "application/msword";
-		constexpr const char* Bin = "application/octet-stream";
-		constexpr const char* MulFromData = "multipart/form-data";
+		const std::string TEXT = "text/plain";
+		const std::string JSON = "application/json";
+		const std::string PB = "application/x-protobuf";
+		const std::string XML = "application/xml";
+		const std::string XHTML = "application/xhtml+xml";
+		const std::string FORM = "application/x-www-form-urlencoded";
+		const std::string PDF = "application/pdf";
+		const std::string WORD = "application/msword";
+		const std::string Bin = "application/octet-stream";
+		const std::string MulFromData = "multipart/form-data";
 	}
 };
 
@@ -199,14 +195,14 @@ namespace http
 
 namespace http
 {
-// 获取后缀名对应的Content-Type
-	inline const char* GetContentType(const std::string& suffix)
+	// 获取后缀名对应的Content-Type
+	inline std::string GetContentType(const std::string& suffix)
 	{
-		static const std::unordered_map<std::string, const char*> contentTypeMap = {
+		static const std::unordered_map<std::string, std::string> contentTypeMap = {
 #define XX(suffix, contentType) {suffix, contentType},
-				HTTP_CONTENT_TYPE_MAP(XX)
+			HTTP_CONTENT_TYPE_MAP(XX)
 #undef XX
-		};
+	};
 		auto it = contentTypeMap.find(suffix);
 		return (it != contentTypeMap.end()) ? it->second : "text/plain"; // 默认的Content-Type
 	}

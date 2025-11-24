@@ -42,6 +42,7 @@ namespace redis
 		Component * mComponent;
 		Asio::Context & mMainContext;
 		std::unique_ptr<redis::Request> mRequest;
+		std::unique_ptr<redis::Response> mResponse;
 	};
 }
 

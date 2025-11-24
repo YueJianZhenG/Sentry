@@ -6,14 +6,18 @@
 #include "Mysql/Service/MysqlReadProxy.h"
 #include "Mysql/Service/MysqlWriteProxy.h"
 #include "Node/Component/NodeComponent.h"
-#include "Entity/Component/ComponentFactory.h"
+
+#define GetTypeName(T) #T
+#define ConcatName(T,str) GetTypeName(T) str
+
+const std::string MysqlReadProxyName = GetTypeName(MysqlReadProxy);
+const std::string MysqlWriteProxyName = GetTypeName(MysqlWriteProxy);
+
 namespace acs
 {
     MysqlProxyComponent::MysqlProxyComponent()
     {
         this->mNode = nullptr;
-        this->mReadName = ComponentFactory::GetName<MysqlReadProxy>();
-        this->mWriteName = ComponentFactory::GetName<MysqlWriteProxy>();
     }
 
     bool MysqlProxyComponent::LateAwake()
@@ -29,59 +33,65 @@ namespace acs
         {
             return XCode::ProtoCastJsonFailure;
         }
-        json::w::Document request;
-        request.Add("tab", tab);
-        request.AddObject("document", document);
-        const std::string func = this->mWriteName + ".InsertOne";
-        return this->CallWriteProxy(func, request);
+        static std::string func = fmt::format("{}.InsertOne", MysqlReadProxyName);
+        {
+            json::w::Document request;
+            request.Add("tab", tab);
+            request.AddObject("document", document);
+            return this->CallWriteProxy(func, request);
+        }
     }
 
     int MysqlProxyComponent::InsertOne(const char* tab, const json::w::Document& document)
     {
-        json::w::Document request;
-        request.Add("tab", tab);
-        request.Add("document", document);
-        const std::string func = this->mWriteName + ".InsertOne";
-        return this->CallWriteProxy(func, request);
+        const static std::string func = fmt::format("{}.InsertOne", MysqlWriteProxyName);
+        {
+            json::w::Document request;
+            request.Add("tab", tab);
+            request.Add("document", document);
+            return this->CallWriteProxy(func, request);
+        }
     }
 
     int MysqlProxyComponent::ReplaceOne(const char* tab, const json::w::Document& document)
     {
-        json::w::Document request;
-        request.Add("tab", tab);
-        request.Add("document", document);
-        const std::string func = this->mWriteName + ".Replace";
-        return this->CallWriteProxy(func, request);
+		const static std::string func = fmt::format("{}.Replace", MysqlWriteProxyName);
+		{
+			json::w::Document request;
+			request.Add("tab", tab);
+			request.Add("document", document);
+			return this->CallWriteProxy(func, request);
+		}
     }
 
     int MysqlProxyComponent::DeleteOne(const char* tab, const json::w::Document& filter)
     {
-        json::w::Document request;
+		json::w::Document request;
+		const static std::string func = fmt::format("{}.Delete", MysqlWriteProxyName);
         {
             request.Add("tab", tab);
             request.Add("limit", 1);
             request.Add("filter", filter);
         }
-        const std::string func = this->mWriteName + ".Delete";
         return this->CallWriteProxy(func, request);
     }
 
     int MysqlProxyComponent::UpdateOne(const char* tab, const json::w::Document& filter, const json::w::Document& document)
     {
-        json::w::Document request;
+		json::w::Document request;
+		const static std::string func = fmt::format("{}.Update", MysqlWriteProxyName);
         {
             request.Add("tab", tab);
             request.Add("limit", 1);
             request.Add("filter", filter);
             request.Add("document", document);
         }
-        const std::string func = this->mWriteName + ".Update";
         return this->CallWriteProxy(func, request);
     }
 
     int MysqlProxyComponent::CallWriteProxy(const std::string& func, const json::w::Document& request)
     {
-        Node * mysqlProxy = this->mNode->Next(this->mWriteName);
+        Node * mysqlProxy = this->mNode->Next(MysqlWriteProxyName);
         if(mysqlProxy == nullptr)
         {
             return XCode::NotFoundActor;
@@ -97,24 +107,24 @@ namespace acs
 
     int MysqlProxyComponent::RunInRead(const std::string& sql, std::unique_ptr<json::r::Document>& response)
     {
-        Node * mysqlProxy = this->mNode->Next(this->mReadName);
+		Node * mysqlProxy = this->mNode->Next(MysqlReadProxyName);
+		const static std::string func = fmt::format("{}.Run", MysqlReadProxyName);
         if(mysqlProxy == nullptr)
         {
             return XCode::NotFoundActor;
         }
-        const std::string func = this->mReadName + ".Run";
         return mysqlProxy->Call(func, sql, response);
     }
 
 
     int MysqlProxyComponent::RunInWrite(const std::string& sql, std::unique_ptr<json::r::Document>& response)
     {
-        Node * mysqlProxy = this->mNode->Next(this->mWriteName);
+        Node * mysqlProxy = this->mNode->Next(MysqlWriteProxyName);
+		const static std::string func = fmt::format("{}.Run", MysqlWriteProxyName);
         if(mysqlProxy == nullptr)
         {
             return XCode::NotFoundActor;
         }
-        const std::string func = this->mWriteName + ".Run";
         return mysqlProxy->Call(func, sql, response);
     }
 
@@ -123,7 +133,8 @@ namespace acs
         long long result = 0;
         do
         {
-            Node * mysqlProxy = this->mNode->Next(this->mWriteName);
+            Node * mysqlProxy = this->mNode->Next(MysqlWriteProxyName);
+			const static std::string func = fmt::format("{}.Inc", MysqlWriteProxyName);
             if(mysqlProxy == nullptr)
             {
                 result = -1;
@@ -136,7 +147,6 @@ namespace acs
                 request.Add("value", value);
                 request.Add("filter", filter);
             }
-            const std::string func = this->mWriteName + ".Inc";
             std::unique_ptr<json::r::Document> response = std::make_unique<json::r::Document>();
             if(mysqlProxy->Call(func, request, response) != XCode::Ok)
             {
@@ -150,7 +160,8 @@ namespace acs
 
     int MysqlProxyComponent::FindOne(const char* tab, const json::w::Document& filter, std::unique_ptr<json::r::Document>& document)
     {
-        Node * mysqlProxy = this->mNode->Next(this->mWriteName);
+        Node * mysqlProxy = this->mNode->Next(MysqlWriteProxyName);
+		const static std::string func = fmt::format("{}.FindOne", MysqlWriteProxyName);
         if(mysqlProxy == nullptr)
         {
             return  XCode::NotFoundActor;
@@ -160,13 +171,13 @@ namespace acs
             request.Add("tab", tab);
             request.Add("filter", filter);
         }
-        const std::string func = this->mWriteName + ".FindOne";
         return  mysqlProxy->Call(func, request, document);
     }
 
     int MysqlProxyComponent::Find(const char* tab, const json::w::Document& filter, std::unique_ptr<json::r::Document>& document)
     {
-        Node * mysqlProxy = this->mNode->Next(this->mWriteName);
+        Node * mysqlProxy = this->mNode->Next(MysqlWriteProxyName);
+		const static std::string func = fmt::format("{}.Find", MysqlWriteProxyName);
         if(mysqlProxy == nullptr)
         {
             return  XCode::NotFoundActor;
@@ -176,13 +187,13 @@ namespace acs
             request.Add("tab", tab);
             request.Add("filter", filter);
         }
-        const std::string func = this->mWriteName + ".Find";
         return  mysqlProxy->Call(func, request, document);
     }
 
     int MysqlProxyComponent::Find(const char* tab, const std::list<std::string>& fields, const json::w::Document& filter, std::unique_ptr<json::r::Document>& document)
     {
-        Node * mysqlProxy = this->mNode->Next(this->mWriteName);
+        Node * mysqlProxy = this->mNode->Next(MysqlWriteProxyName);
+		const static std::string func = fmt::format("{}.Find", MysqlWriteProxyName);
         if(mysqlProxy == nullptr)
         {
             return  XCode::NotFoundActor;
@@ -193,13 +204,13 @@ namespace acs
             request.Add("filter", filter);
             request.Add("fields", fields);
         }
-        const std::string func = this->mWriteName + ".Find";
         return  mysqlProxy->Call(func, request, document);
     }
 
     int MysqlProxyComponent::FindOne(const char* tab, const std::list<std::string>& fields, const json::w::Document& filter, std::unique_ptr<json::r::Document>& document)
     {
-        Node * mysqlProxy = this->mNode->Next(this->mReadName);
+        Node * mysqlProxy = this->mNode->Next(MysqlReadProxyName);
+		const static std::string func = fmt::format("{}.FindOne", MysqlReadProxyName);
         if(mysqlProxy == nullptr)
         {
             return  XCode::NotFoundActor;
@@ -210,7 +221,6 @@ namespace acs
             request.Add("filter", filter);
             request.Add("fields", fields);
         }
-        const std::string func = this->mReadName + ".FindOne";
         return  mysqlProxy->Call(func, request, document);
     }
 
@@ -219,7 +229,8 @@ namespace acs
         long long result = 0;
         do
         {
-            Node * mysqlProxy = this->mNode->Next(this->mReadName);
+            Node * mysqlProxy = this->mNode->Next(MysqlReadProxyName);
+			const static std::string func = fmt::format("{}.Count", MysqlReadProxyName);
             if(mysqlProxy == nullptr)
             {
                 result = -1;
@@ -230,7 +241,6 @@ namespace acs
                 request.Add("tab", tab);
                 request.Add("filter", filter);
             }
-            const std::string func = this->mReadName + ".Count";
             std::unique_ptr<json::r::Document> response = std::make_unique<json::r::Document>();
             if(mysqlProxy->Call(func, request, response) != XCode::Ok)
             {

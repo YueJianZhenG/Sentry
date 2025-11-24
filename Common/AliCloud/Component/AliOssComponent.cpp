@@ -17,6 +17,7 @@
 #include "Http/Component/HttpComponent.h"
 #include "Util/Crypt/sha1.h"
 #include "Lua/Lib/Lib.h"
+
 namespace acs
 {
 
@@ -54,10 +55,10 @@ namespace acs
 	AliOssComponent::AliOssComponent()
 	{
 		this->mHttp = nullptr;
+		REGISTER_JSON_CLASS_FIELD(oss::Config, bucket);
+		REGISTER_JSON_CLASS_FIELD(oss::Config, region);
 		REGISTER_JSON_CLASS_MUST_FIELD(oss::Config, key);
 		REGISTER_JSON_CLASS_MUST_FIELD(oss::Config, proto);
-		REGISTER_JSON_CLASS_MUST_FIELD(oss::Config, bucket);
-		REGISTER_JSON_CLASS_MUST_FIELD(oss::Config, region);
 		REGISTER_JSON_CLASS_MUST_FIELD(oss::Config, secret);
 	}
 
@@ -66,16 +67,65 @@ namespace acs
 		LuaCCModuleRegister::Add([](Lua::CCModule & ccModule) {
 			ccModule.Open("ali.oss", lua::lib::luaopen_loss);
 		});
-		if(!ServerConfig::Inst()->Get("oss", this->mConfig))
-		{
-			LOG_WARN("not find oss config");
-		}
+		ServerConfig & config = this->mApp->GetConfig();
+		LOG_CHECK_RET_FALSE(config.Get("ali.oss", this->mConfig))
 		return true;
+	}
+
+	void AliOssComponent::OnStart()
+	{
+		oss::Config config;
+		config.key = this->mConfig.key;
+		config.secret = this->mConfig.secret;
+		std::unique_ptr<http::Request> request = this->New("GET", config, "", false);
+		{
+#ifndef __ENABLE_OPEN_SSL__
+			request->SetUrl("http://oss.aliyuncs.com");
+#else
+			request->SetUrl("https://oss.aliyuncs.com");
+#endif
+		}
+		std::unique_ptr<http::Content> response = this->mHttp->Run(request);
+		LOG_CHECK_RET(response != nullptr && response->GetContentType() == http::ContentType::XML);
+		const http::XMLContent* xmlContent = response->Cast<http::XMLContent>();
+
+		std::unique_ptr<xml::XElement> xElement;
+		xmlContent->Get("Buckets", xElement);
+		std::vector<std::unique_ptr<xml::XElement>> xElements;
+		xElement->Get("Bucket", xElements);
+		for(std::unique_ptr<xml::XElement> & element :xElements)
+		{
+			std::string name, location;
+			element->Get("Name", name);
+			element->Get("Location", location);
+			this->mLocals.emplace_back(name, location);
+		}
+		std::vector<tinyxml2::XMLNode *> bucketsElement;
 	}
 
 	bool AliOssComponent::LateAwake()
 	{
 		LOG_CHECK_RET_FALSE(this->mHttp = this->GetComponent<HttpComponent>())
+		return true;
+	}
+
+	bool AliOssComponent::GetLocation(const std::string& bucket, oss::Config & config)
+	{
+		auto iter = std::find_if(this->mLocals.begin(), this->mLocals.end(),
+				[&bucket](const std::pair<std::string, std::string>& item)
+				{
+					return item.first == bucket;
+				});
+		if(iter == this->mLocals.end())
+		{
+			LOG_ERROR("not find oss bucket:{}", bucket);
+			return false;
+		}
+		config.bucket = bucket;
+		config.region = iter->second;
+		config.key = this->mConfig.key;
+		config.proto = this->mConfig.proto;
+		config.secret = this->mConfig.secret;
 		return true;
 	}
 
@@ -192,49 +242,66 @@ namespace acs
 		return true;
 	}
 
-	std::unique_ptr<oss::Response> AliOssComponent::Upload(const std::string& path, const std::string& dir)
+	bool AliOssComponent::Download(const std::string& bucket, const std::string& objectKey, const std::string& path)
 	{
-		return this->Upload(this->mConfig, path, dir);
+		oss::Config ossConfig;
+		if(!this->GetLocation(bucket, ossConfig))
+		{
+			return false;
+		}
+		return this->Download(ossConfig, objectKey, path);
+	}
+
+	std::unique_ptr<oss::Response> AliOssComponent::Upload(const std::string & bucket, const std::string& path, const std::string& objectKey)
+	{
+		oss::Config ossConfig;
+		if(!this->GetLocation(bucket, ossConfig))
+		{
+			return nullptr;
+		}
+		return this->Upload(ossConfig, path, objectKey);
+	}
+
+	std::unique_ptr<http::Request> AliOssComponent::New(const char* method,
+			const std::string& bucket, const std::string& objectKey, bool contentType)
+	{
+		oss::Config ossConfig;
+		if(!this->GetLocation(bucket, ossConfig))
+		{
+			return nullptr;
+		}
+		return this->New(method, ossConfig, objectKey, contentType);
 	}
 
 	std::unique_ptr<http::Request> AliOssComponent::New(const char* method,
 			const oss::Config& config, const std::string& objectKey, bool hasContentType)
 	{
-		std::string contentType, fileMd5;
-		const std::string date = get_utc_time();
-		if(hasContentType && !objectKey.empty())
-		{
-			std::string fileType;
-			help::fs::GetFileType(objectKey, fileType);
-			contentType = http::GetContentType(fileType);
-		}
-		std::string canonicalized_resource = "/" + config.bucket + "/" + objectKey;
 		std::unique_ptr<http::Request> httpRequest = std::make_unique<http::Request>(method);
+		std::unique_ptr<oss::AuthInfo> authInfo = this->GenAuth(method, config, objectKey, hasContentType);
 		{
-			httpRequest->Header().Add("Date", date);
-			httpRequest->Header().Add("User-Agent", "acs");
-			std::string sign = create_signature(method, fileMd5, contentType,
-					date, canonicalized_resource, config.secret);
-			if(!contentType.empty())
+			for(const std::pair<std::string, std::string> & item : authInfo->header)
 			{
-				httpRequest->Header().Add(http::Header::ContentType, contentType);
+				httpRequest->Header().Add(item.first, item.second);
 			}
-			std::string auth = fmt::format("OSS {}:{}", config.key, sign);
-			httpRequest->Header().Add(http::Header::Auth, auth);
 		}
 		return httpRequest;
 	}
 
-	std::unique_ptr<http::Request> AliOssComponent::New(const std::string& path, const std::string & dir)
+	std::unique_ptr<http::Request> AliOssComponent::New(const std::string& path, const std::string & objectKey)
+	{
+		return this->New(this->mConfig, path, objectKey);
+	}
+
+	std::unique_ptr<http::Request> AliOssComponent::New(
+			const oss::Config& ossConfig, const std::string& path, const std::string& objectKey)
 	{
 		std::string fileName;
 		if (!help::Str::GetFileName(path, fileName))
 		{
 			return nullptr;
 		}
-		std::string objectKey = fmt::format("{}/{}", dir, fileName);
-		std::string url = fmt::format("{}/{}", this->mConfig.GetUrl(), objectKey);
-		std::unique_ptr<http::Request> httpRequest = this->New("PUT", this->mConfig, objectKey, true);
+		std::string url = fmt::format("{}/{}", ossConfig.GetUrl(), objectKey);
+		std::unique_ptr<http::Request> httpRequest = this->New("PUT", ossConfig, objectKey, true);
 		{
 			httpRequest->SetUrl(url);
 		}
@@ -242,14 +309,31 @@ namespace acs
 		{
 			if (!fileContent->OpenFile(path))
 			{
+				LOG_ERROR("[open] => {}", path)
 				return nullptr;
 			}
 		}
-		httpRequest->SetBody(std::move(fileContent));
-		return nullptr;
+		httpRequest->SetContent(std::move(fileContent));
+		return httpRequest;
 	}
 
-	std::unique_ptr<oss::Response> AliOssComponent::Upload(const oss::Config & config, const std::string& path, const std::string & dir)
+	std::unique_ptr<http::Request> AliOssComponent::New(const std::string& bucket,
+			const std::string& path, const std::string& objectKey)
+	{
+		oss::Config ossConfig;
+		if(!this->GetLocation(bucket, ossConfig))
+		{
+			return nullptr;
+		}
+		return this->New(ossConfig, path, objectKey);
+	}
+
+	std::unique_ptr<oss::Response> AliOssComponent::Upload(const std::string& path, const std::string& objectKey)
+	{
+		return this->Upload(this->mConfig, path, objectKey);
+	}
+
+	std::unique_ptr<oss::Response> AliOssComponent::Upload(const oss::Config & config, const std::string& path, const std::string & objectKey)
 	{
 		std::unique_ptr<oss::Response> ossResponse = std::make_unique<oss::Response>();
 		do
@@ -267,7 +351,6 @@ namespace acs
 				ossResponse->code = HttpStatus::BAD_REQUEST;
 				break;
 			}
-			std::string objectKey = fmt::format("{}/{}", dir, fileName);
 			std::string url = fmt::format("{}/{}", config.GetUrl(), objectKey);
 			std::unique_ptr<http::Request> httpRequest = this->New("PUT", config, objectKey, true);
 			std::unique_ptr<http::FileContent> fileContent = std::make_unique<http::FileContent>();
@@ -279,7 +362,7 @@ namespace acs
 					break;
 				}
 			}
-			httpRequest->SetBody(std::move(fileContent));
+			httpRequest->SetContent(std::move(fileContent));
 			std::unique_ptr<http::Response> response = this->Run(url, httpRequest);
 			if (response == nullptr)
 			{
@@ -302,16 +385,17 @@ namespace acs
 		return ossResponse;
 	}
 
-	void AliOssComponent::Sign(const oss::Policy& policy, json::w::Value & document2)
+	bool AliOssComponent::Sign(const oss::Policy& policy, const oss::Config & config, oss::FromData& fromData)
 	{
 		json::w::Document document1;
 		document1.Add("expiration", help::Time::GetDateISO(policy.expiration));
 		auto conditionArray = document1.AddArray("conditions");
-		auto jsonArray = conditionArray->AddArray();
+
+		auto jsonArray1 = conditionArray->AddArray();
 		{
-			jsonArray->Push("content-length-range");
-			jsonArray->Push(0);
-			jsonArray->Push(policy.max_length);
+			jsonArray1->Push("eq");
+			jsonArray1->Push("$bucket");
+			jsonArray1->Push(config.bucket);
 		}
 		auto jsonArray2 = conditionArray->AddArray();
 		{
@@ -319,89 +403,135 @@ namespace acs
 			jsonArray2->Push("$success_action_status");
 			jsonArray2->Push("200");
 		}
+		if (!policy.upload_dir.empty())
+		{
+			auto jsonUpload = conditionArray->AddArray();
+			jsonUpload->Push("starts-with");
+			jsonUpload->Push("$key");
+			jsonUpload->Push(policy.upload_dir + '/');
+		}
+		auto jsonArray = conditionArray->AddArray();
+		{
+			jsonArray->Push("content-length-range");
+			jsonArray->Push(0);
+			jsonArray->Push(policy.max_length);
+		}
 
 		auto jsonArray3 = conditionArray->AddArray();
 		{
 			jsonArray3->Push("in");
 			jsonArray3->Push("$content-type");
 			auto jsonArray4 = jsonArray3->AddArray();
+			for (const std::string& type: policy.limit_type)
 			{
-				for (const std::string& type: policy.limit_type)
-				{
-					jsonArray4->Push(type);
-				}
+				jsonArray4->Push(type);
 			}
+//			if(!policy.file_type.empty())
+//			{
+//				jsonArray4->Push(policy.file_type);
+//			}
 		}
 
 		std::string str1 = document1.JsonString();
 		std::string str2 = help::Base64::Encode(str1);
-		std::string str3 = help::Sha1::GetHMacHash(this->mConfig.secret, str2);
-		std::string signature = help::Base64::Encode(str3);
+		std::string str3 = help::Sha1::GetHMacHash(config.secret, str2);
 
-		const std::string host = this->mConfig.GetUrl();
-
-		document2.Add("ossAccessKeyId", this->mConfig.key);
-		document2.Add("host", host);
-		document2.Add("policy", str2);
-		document2.Add("signature", signature);
-
+		std::string host = config.GetUrl();
 		size_t pos = policy.file_type.find('/');
-		if (pos == std::string::npos)
+		if(pos == std::string::npos)
 		{
-			return;
+			return false;
 		}
-
 		std::string type = policy.file_type.substr(pos + 1);
-		const std::string fileName = fmt::format("{}.{}", policy.file_name, type);
-		std::string fullName = policy.upload_dir + fileName;
-
-		document2.Add("key", fullName);
-		document2.Add("file", fileName);
-		document2.Add("url", fmt::format("{}/{}", host, fullName));
-	}
-
-	void AliOssComponent::Sign(const oss::Policy& policy, oss::FromData& fromData)
-	{
-		json::w::Document document1;
-		document1.Add("expiration", help::Time::GetDateISO(policy.expiration));
-		auto conditionArray = document1.AddArray("conditions");
-		auto jsonArray = conditionArray->AddArray();
-		{
-			jsonArray->Push("content-length-range");
-			jsonArray->Push(0);
-			jsonArray->Push(policy.max_length);
-		}
-		auto jsonArray2 = conditionArray->AddArray();
-		{
-			jsonArray2->Push("eq");
-			jsonArray2->Push("$success_action_status");
-			jsonArray2->Push("200");
-		}
-
-		auto jsonArray3 = conditionArray->AddArray();
-		{
-			jsonArray3->Push("in");
-			jsonArray3->Push("$content-type");
-			auto jsonArray4 = jsonArray3->AddArray();
-			{
-				for (const std::string& type : policy.limit_type)
-				{
-					jsonArray4->Push(type);
-				}
-			}
-		}
-
-		std::string str1 = document1.JsonString();
-		std::string str2 = help::Base64::Encode(str1);
-		std::string str3 = help::Sha1::GetHMacHash(this->mConfig.secret, str2);
-
-		std::string fullName = policy.upload_dir + "/" + policy.file_name;
-		const std::string host = this->mConfig.GetUrl();
+		fromData.fileName = policy.file_name + '.' + type;
+		std::string fullName = policy.upload_dir + '/' + fromData.fileName;
 
 		fromData.policy = str2;
-		fromData.key = fullName;
-		fromData.OSSAccessKeyId = this->mConfig.key;
+		fromData.objectKey = fullName;
+		fromData.host = config.GetUrl();
+		fromData.OSSAccessKeyId = config.key;
 		fromData.signature = help::Base64::Encode(str3);
 		fromData.url = fmt::format("{}/{}", host, fullName);
+		return true;
+	}
+
+	bool AliOssComponent::Sign(const oss::Policy& policy, oss::FromData& fromData)
+	{
+		return this->Sign(policy, this->mConfig, fromData);
+	}
+
+	bool AliOssComponent::Sign(const oss::Policy& policy, const std::string& bucket, oss::FromData& fromData)
+	{
+		oss::Config config;
+		if(!this->GetLocation(bucket, config))
+		{
+			return false;
+		}
+		return this->Sign(policy, config, fromData);
+	}
+
+	std::unique_ptr<oss::AuthInfo> AliOssComponent::GenAuth(
+			const char* method, const std::string& objectKey, bool hasContentType)
+	{
+		return this->GenAuth(method, this->mConfig, objectKey, hasContentType);
+	}
+
+	std::unique_ptr<oss::AuthInfo> AliOssComponent::GenAuth(
+			const char* method, const std::string& bucket, const std::string& objectKey, bool hasContentType)
+	{
+		oss::Config config;
+		if(!this->GetLocation(bucket, config))
+		{
+			return nullptr;
+		}
+		return this->GenAuth(method, config, objectKey, hasContentType);
+	}
+
+	std::unique_ptr<oss::AuthInfo> AliOssComponent::GenAuth(
+			const char * method, const oss::Config& config, const std::string & objectKey, bool hasContentType)
+	{
+		std::unique_ptr<oss::AuthInfo> result = std::make_unique<oss::AuthInfo>();
+		std::string contentType, fileMd5;
+		const std::string date = get_utc_time();
+		if (hasContentType && !objectKey.empty())
+		{
+			std::string fileType;
+			help::fs::GetFileType(objectKey, fileType);
+			contentType = http::GetContentType(fileType);
+		}
+		std::string canonicalized_resource = "/";
+		if (!config.bucket.empty())
+		{
+			canonicalized_resource.append(config.bucket);
+		}
+		if (!objectKey.empty())
+		{
+			canonicalized_resource += '/';
+			canonicalized_resource.append(objectKey);
+		}
+		std::string sign = create_signature(method, fileMd5, contentType,
+				date, canonicalized_resource, config.secret);
+		if (!contentType.empty())
+		{
+			result->header.emplace_back(http::Header::ContentType, contentType);
+		}
+
+		std::string auth = fmt::format("OSS {}:{}", config.key, sign);
+		result->header.emplace_back("Date", date);
+		result->header.emplace_back("User-Agent", "acs");
+		result->header.emplace_back(http::Header::Auth, auth);
+		result->url = fmt::format("{}/{}", config.GetUrl(), objectKey);
+		return result;
+	}
+
+	bool AliOssComponent::GetUrl(const std::string& objectKey, std::string & url)
+	{
+		return this->GetUrl(this->mConfig, objectKey, url);
+	}
+
+	bool AliOssComponent::GetUrl(const oss::Config& config, const std::string& objectKey, std::string& url)
+	{
+		url = fmt::format("{}/{}", config.GetUrl(), objectKey);
+		return true;
 	}
 }

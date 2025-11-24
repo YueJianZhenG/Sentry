@@ -14,8 +14,9 @@ namespace acs
 	public:
 		explicit MysqlTask(int taskId) :  IRpcTask<mysql::Response>(taskId) { }
 	public:
+		void OnTimeout() final;
 		inline std::unique_ptr<mysql::Response> Await();
-		inline void OnResponse(std::unique_ptr<mysql::Response> response) noexcept final;
+		inline void OnResponse(std::unique_ptr<mysql::Response>& response) noexcept final;
 	private:
 		std::unique_ptr<mysql::Response> mMessage;
 	};
@@ -24,7 +25,17 @@ namespace acs
 		this->YieldTask();
 		return std::move(this->mMessage);
 	}
-	inline void MysqlTask::OnResponse(std::unique_ptr<mysql::Response> response) noexcept
+
+	inline void MysqlTask::OnTimeout()
+	{
+		this->mMessage = std::make_unique<mysql::Response>();
+		{
+			this->mMessage->error.emplace_back("time out");
+		}
+		this->ResumeTask();
+	}
+
+	inline void MysqlTask::OnResponse(std::unique_ptr<mysql::Response>& response) noexcept
 	{
 		this->mMessage = std::move(response);
 		this->ResumeTask();

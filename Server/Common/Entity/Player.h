@@ -13,24 +13,23 @@ namespace acs
 	public:
 		Player(long long playerId, int gate, int sockId);
 	public:
-		inline int GetGateID() const { return this->mGateId; }
-		inline int GetClientID() const { return this->mSockId; }
+		inline int GetGateId() const { return this->mGateId; }
+		inline int GetSocketId() const { return this->mSockId; }
 	public:
 		void Logout();
 		bool OnInit() final;
-		void GetActors(std::vector<int> & actors) const;
-		bool GetServerId(const std::string & srv, int & id) const;
+		bool GetNodeID(const std::string & srv, int & id) const;
 		bool GetAddress(const rpc::Message &request, int & id) const final;
 	public:
-		bool DelServer(const std::string & server);
-		void AddServer(const std::string & server, int id);
+		bool DelNode(const std::string & server);
+		void AddNode(const std::string & server, int id);
 	protected:
 		std::unique_ptr<rpc::Message> Make(const std::string &func) const final;
 	private:
-		int mGateId;
-		int mSockId;
+		int mGateId; //所在网关id
+		int mSockId; //所在网关分配的id
 		class NodeComponent * mActor;
-		std::vector<std::pair<std::string, int>> mServerAddrs;
+		std::vector<std::pair<std::string, int>> mServerAddrs; //玩家所在的所有节点名字和对应id
 	};
 }
 

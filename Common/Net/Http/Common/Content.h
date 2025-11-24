@@ -5,7 +5,7 @@
 #ifndef APP_CONTENT_H
 #define APP_CONTENT_H
 #include<fstream>
-#include<unordered_map>
+#include<map>
 #include <utility>
 #include "IContent.h"
 #include"Proto/Message/IProto.h"
@@ -40,13 +40,13 @@ namespace http
     private:
         bool OnDecode() final;
         void OnWriteHead(std::ostream &os) final;
-        int OnWriteBody(std::ostream &os) final { return 0; }
+        int OnWriteBody(std::ostream &os) final;
         int OnRecvMessage(std::istream & ss, size_t size) final;
 		size_t ContentLength() final { return this->mContent.size();}
 		inline void SetContentLength(long long len) final { this->mContent.reserve(len); }
     private:
         std::string mContent;
-        std::unordered_map<std::string, std::string> mParameters;
+        std::map<std::string, std::string> mParameters;
     };
 }
 
@@ -75,8 +75,8 @@ namespace http
         void OnWriteHead(std::ostream &os) final;
         int OnWriteBody(std::ostream &os) final;
         int OnRecvMessage(std::istream & is, size_t size) final;
-		inline std::string ToStr() const final { return this->mJson; }
 		inline size_t ContentLength() final { return this->mJson.size(); }
+    	inline std::string ToStr() const final { return this->mDocument.ToString(); }
 		inline void SetContentLength(long long len) final { this->mJson.reserve(len); }
 		inline bool OnDecode() final { return this->mDocument.Decode(this->mJson, YYJSON_READ_INSITU); }
 	private:
@@ -179,27 +179,29 @@ namespace http
 
 namespace http
 {
-	class TransferContent final : public Content
+	class ChunkedContent final : public Content
 	{
 	public:
-		TransferContent() : mContSize(0) { }
-		~TransferContent() override { this->mFile.close(); }
-	public:
-		bool OpenFile(const std::string & path, const std::string & t);
+		ChunkedContent() : mIndex(0), mCount(0) { }
+		~ChunkedContent() override { this->mContent.clear(); }
 	private:
 		bool OnDecode() final;
 		void WriteToLua(lua_State *l) final;
 		int OnWriteBody(std::ostream &os) final;
 		void OnWriteHead(std::ostream &os) final;
 		int OnRecvMessage(std::istream & is, size_t size) final;
-		std::string ToStr() const final { return this->mPath; }
+		std::string ToStr() const final { return this->mContent; }
 		inline size_t ContentLength() final { return 0; }
 		http::ContentType GetContentType() const final { return http::ContentType::CHUNKED; }
+	public:
+		void SetContent(const std::string & content);
+		void SetContent(const std::string & type, const std::string & content);
+		const std::string & GetContent() const { return this->mContent; }
 	private:
-		size_t mContSize;
-		std::string mPath;
-		std::string mType;
-		std::fstream mFile;
+		size_t mIndex;
+		size_t mCount;
+		std::string mContent;
+		std::string mContType;
 	};
 }
 
@@ -243,7 +245,7 @@ namespace http
 		std::string mBoundary;
 		std::string mContent;
 		std::vector<std::string> mHeader;
-		std::unordered_map<std::string, std::string> mFromData;
+		std::map<std::string, std::string> mFromData;
 	};
 }
 
@@ -264,6 +266,27 @@ namespace http
 		http::ContentType GetContentType() const final { return http::ContentType::PB; }
 	public:
 		const std::string & GetContent() const { return this->mBody; }
+	private:
+		std::string mBody;
+	};
+}
+
+namespace http
+{
+	class StringContent final : public Content
+	{
+	public:
+		StringContent(const std::string & str) : mBody(str) { };
+	private:
+		void WriteToLua(lua_State* l) final;
+		bool OnDecode() final { return true; }
+		void OnWriteHead(std::ostream& os) final { }
+		int OnWriteBody(std::ostream& os) final;
+		int OnRecvMessage(std::istream& is, size_t size) final;
+		size_t ContentLength() final { return this->mBody.size(); }
+	public:
+		const std::string & GetContent() const { return this->mBody; }
+		http::ContentType GetContentType() const final { return http::ContentType::PB; }
 	private:
 		std::string mBody;
 	};

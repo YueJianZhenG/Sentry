@@ -14,6 +14,7 @@ namespace Lua
     class ILuaWriter
     {
     public:
+        virtual ~ILuaWriter() = default;
         virtual void Writer(lua_State *lua) = 0;
     };
 

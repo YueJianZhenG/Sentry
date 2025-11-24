@@ -8,16 +8,18 @@
 #include"Lua/Engine/Define.h"
 #include"Entity/Actor/App.h"
 #include"Router/Component/RouterComponent.h"
-#include "Client/Component/WsClientComponent.h"
-#include "Client/Component/TcpClientComponent.h"
 
 namespace lua
 {
 	int Client::Send(lua_State* l)
 	{
-		std::unique_ptr<rpc::Message> message;
+		size_t count = 0;
+		static std::string func;
 		int sessionId = (int)luaL_checkinteger(l, 1);
-		const std::string func = luaL_checkstring(l, 2);
+		const char * str = luaL_checklstring(l, 2, &count);
+
+		func.assign(str, count);
+		std::unique_ptr<rpc::Message> message;
 		if(acs::App::Inst()->MakeMessage(l, 3, func, message) != XCode::Ok)
 		{
 			lua_pushinteger(l, XCode::Failure);
@@ -36,9 +38,13 @@ namespace lua
 
 	int Client::Call(lua_State* l)
 	{
-		std::unique_ptr<rpc::Message> message;
+		size_t count = 0;
+		static std::string func;
 		int sessionId = (int)luaL_checkinteger(l, 1);
-		const std::string func = luaL_checkstring(l, 2);
+		const char * str = luaL_checklstring(l, 2, &count);
+
+		func.assign(str, count);
+		std::unique_ptr<rpc::Message> message;
 		if(acs::App::Inst()->MakeMessage(l, 3, func, message) != XCode::Ok)
 		{
 			lua_pushinteger(l, XCode::Failure);
@@ -58,7 +64,10 @@ namespace lua
 
 	int Client::Connect(lua_State* lua)
 	{
-		const std::string addr = luaL_checkstring(lua, 1);
+		size_t count = 0;
+		static std::string address;
+		const char * str = luaL_checklstring(lua, 1, &count);
+
 		acs::RouterComponent * router = acs::App::Get<acs::RouterComponent>();
 		if(router == nullptr)
 		{
@@ -68,10 +77,11 @@ namespace lua
 		rpc::IInnerSender* clientSender = router->GetSender(rpc::net::client);
 		if(clientSender == nullptr)
 		{
-			luaL_error(lua, "not find client sender");
+			LOG_ERROR("not find client sender");
 			return 0;
 		}
-		int sessionId = clientSender->Connect(addr);
+		address.assign(str, count);
+		int sessionId = clientSender->Connect(address);
 		lua_pushinteger(lua, sessionId);
 		return 1;
 	}
@@ -88,7 +98,7 @@ namespace lua
 		rpc::IInnerSender* clientSender = router->GetSender(rpc::net::client);
 		if(clientSender == nullptr)
 		{
-			luaL_error(L, "not find client sender");
+			LOG_ERROR("not find client sender");
 			return 0;
 		}
 		clientSender->Remove(sessionId);

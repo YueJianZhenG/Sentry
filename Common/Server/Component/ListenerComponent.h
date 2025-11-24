@@ -1,6 +1,5 @@
 #pragma once
 #include<unordered_set>
-#include<unordered_map>
 #include "ITcpComponent.h"
 #include"Core/Thread/AsioThread.h"
 #include"Entity/Component/Component.h"
@@ -10,9 +9,16 @@
 #include"Core/Queue/DoubleBufferQueue.h"
 #endif
 
+#ifdef __ENABLE_OPEN_SSL__
+#include "Util/Ssl/SslCert.h"
+#endif
+
 namespace acs
 {
 	class ListenerComponent final : public Component, public INetListen
+#ifdef __ENABLE_OPEN_SSL__
+			, public ISecondUpdate
+#endif
 	{
 	public:
 		explicit ListenerComponent();
@@ -24,10 +30,14 @@ namespace acs
 		void Accept();
 		tcp::Socket* CreateSocket();
 		void OnAcceptSocket(tcp::Socket* sock);
+#ifdef __ENABLE_OPEN_SSL__
+		void OnSecondUpdate(int tick) noexcept final;
+#endif
 	private:
 		ListenConfig mConfig;
 #ifdef __ENABLE_OPEN_SSL__
 		Asio::ssl::Context mSslCtx;
+		help::ssl::CertInfo mCertInfo;
 #endif
 		Asio::Executor mExecutor;
 		class ITcpListen * mTcpListen;

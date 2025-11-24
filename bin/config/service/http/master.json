@@ -3,7 +3,7 @@
         "type": "POST",
         "async": true,
         "auth": true,
-        "permission": 100,
+        "access": 100,
         "bind": "Master.Push",
         "content-type": "application/json",
         "desc": "注册服务器到中心",
@@ -24,7 +24,7 @@
         "type": "GET",
         "async": true,
         "auth": true,
-        "permission": 100,
+        "access": 100,
         "bind": "Master.Find",
         "desc": "查找服务器进程",
         "request": {
@@ -35,7 +35,7 @@
         "type": "DELETE",
         "async": true,
         "auth": true,
-        "permission": 100,
+        "access": 100,
         "bind": "Master.Del",
         "desc": "移除某个服务器",
         "request": {

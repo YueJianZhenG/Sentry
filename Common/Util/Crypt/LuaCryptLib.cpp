@@ -18,6 +18,23 @@ namespace lua
 		return 1;
 	}
 
+	int md5::File(lua_State* L)
+	{
+		size_t size = 0;
+		static std::string path;
+		static std::string output;
+		const char * str = luaL_checklstring(L, 1, &size);
+
+		output.clear();
+		path.assign(str, size);
+		if(!help::md5::FileMd5(path, output))
+		{
+			return 0;
+		}
+		lua_pushlstring(L, output.c_str(), output.size());
+		return 1;
+	}
+
     int md5::ToString(lua_State * L)
     {
 		size_t size = 0;
@@ -75,8 +92,8 @@ namespace lua
 		const char * str1 = luaL_checklstring(L, 1, &size1);
 		const char * str2 = luaL_checklstring(L, 2, &size2);
 		{
-			const std::string key(str1, size1);
-			const std::string text(str2, size2);
+			std::string key(str1, size1);
+			std::string text(str2, size2);
 			std::string output = help::Sha1::GetHMacHash(key, text);
 			lua_pushlstring(L, output.c_str(), output.size());
 		}

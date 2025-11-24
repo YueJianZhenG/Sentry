@@ -9,33 +9,22 @@
             "type": 1
         }
     },
-    "/upload/code": {
-        "type": "POST",
-        "auth": true,
-        "bind": "FileUpload.Code",
-        "content-type": "multipart/form-data",
-        "desc": "上传微信二维码"
-    },
-    "/upload/club": {
-        "type": "POST",
-        "auth": true,
-        "bind": "FileUpload.Club",
-        "content-type": "multipart/form-data",
-        "desc": "上传俱乐部头像"
-    },
-    "/upload/icon": {
-        "type": "POST",
-        "auth": true,
-        "bind": "FileUpload.Icon",
-        "content-type": "multipart/form-data",
-        "desc": "上传用户头像"
-    },
     "/upload/file": {
         "type": "POST",
         "auth": false,
-        "permission": 5,
+        "access": 5,
+        "limit" : 0,
         "bind": "FileUpload.File",
         "content-type": "multipart/form-data",
         "desc": "上传活动图片资源等"
+    },
+    "/upload/proxy": {
+        "type": "POST",
+        "auth": false,
+        "async" : true,
+        "access": 5,
+        "limit" : 0,
+        "bind": "FileUpload.Proxy",
+        "desc": "上传图片或者json"
     }
 }

@@ -1,11 +1,9 @@
 ﻿#include"CoroutineComponent.h"
 #include"Entity/Actor/App.h"
+#include "Util/Core/Com.h"
 #include"Timer/Component/TimerComponent.h"
-#ifdef __DEBUG__
-#include"Util/Tools/TimeHelper.h"
-#endif
-#ifndef __OS_WIN__
-#include <sys/mman.h>
+#ifdef __ENABLE_MI_MALLOC__
+#include "mimalloc.h"
 #endif
 
 namespace acs
@@ -26,11 +24,11 @@ namespace acs
 		this->mTimer = nullptr;
 #ifdef __ENABLE_SHARE_STACK__
 		this->mConfig.pool = 100;
-		this->mConfig.share = 16;
+		this->mConfig.share = 8;
 		this->mConfig.stack = 1024 * 1024;
 #else
 		this->mConfig.pool = 100;
-		this->mConfig.stack = 1024 * 128;
+		this->mConfig.stack = 128;
 #endif
 		this->mRunContext = nullptr;
 		this->mMainContext = nullptr;
@@ -41,6 +39,24 @@ namespace acs
 #endif
 		REGISTER_JSON_CLASS_FIELD(coroutine::Config, stack);
 	}
+#ifdef __ENABLE_SHARE_STACK__
+	CoroutineComponent::~CoroutineComponent() noexcept
+	{
+		for(int index = 0; index < this->mConfig.share; index++)
+		{
+			Stack& stack = this->mSharedStack[index];
+			{
+				stack.co = 0;
+				stack.size = this->mConfig.stack;
+#ifdef __ENABLE_MI_MALLOC__
+				mi_free(stack.p);
+#else
+				free(stack.p);
+#endif
+			}
+		}
+	}
+#endif
 
 	void CoroutineComponent::RunTask(tb_context_t context)
 	{
@@ -55,7 +71,10 @@ namespace acs
 	bool CoroutineComponent::Awake()
 	{
 		this->mRunContext = nullptr;
-		ServerConfig::Inst()->Get("coroutine", this->mConfig);
+		if(ServerConfig::Inst()->Get("coroutine", this->mConfig))
+		{
+			this->mConfig.stack = this->mConfig.share * 1024;
+		}
 #ifdef __ENABLE_SHARE_STACK__
 		this->mSharedStack = std::make_unique<Stack[]>(this->mConfig.share);
 		for(int index = 0; index < this->mConfig.share; index++)
@@ -64,7 +83,11 @@ namespace acs
 			{
 				stack.co = 0;
 				stack.size = this->mConfig.stack;
-				stack.p = (char *)std::malloc(this->mConfig.stack);
+#ifdef __ENABLE_MI_MALLOC__
+				stack.p = (char *)mi_malloc(this->mConfig.stack);
+#else
+				stack.p = (char *)malloc(this->mConfig.stack);
+#endif
 				stack.top = stack.p + this->mConfig.stack;
 			}
 			std::memset(stack.p, 0, this->mConfig.stack);
@@ -73,6 +96,7 @@ namespace acs
 
 #endif
 		this->mCoroutines.reserve(this->mConfig.pool * 2);
+		LOG_DEBUG("coroutine stack:{} pool:{}", help::com::BytesToString(this->mConfig.stack), this->mConfig.pool)
 		return true;
 	}
 
@@ -97,15 +121,15 @@ namespace acs
 		std::queue<std::unique_ptr<TaskContext>> tempQueue;
 		while(!this->mObjectPool.empty())
 		{
-			std::unique_ptr<TaskContext> coroutine = std::move(this->mObjectPool.front());
+			std::unique_ptr<TaskContext> & coroutine = this->mObjectPool.front();
 			{
-				this->mObjectPool.pop();
 				size += coroutine->stack.size;
 				tempQueue.emplace(std::move(coroutine));
 			}
+			this->mObjectPool.pop();
 		}
 		std::swap(this->mObjectPool, tempQueue);
-		for(auto & mCoroutine : this->mCoroutines)
+		for(const auto & mCoroutine : this->mCoroutines)
 		{
 			size += mCoroutine.second->stack.size;
 		}
@@ -115,8 +139,6 @@ namespace acs
 	void CoroutineComponent::OnRecord(json::w::Document& document)
 	{
 		size_t memory = this->GetMemory();
-
-		constexpr double MB = 1024 * 1024.0f;
 		std::unique_ptr<json::w::Value> data = document.AddObject("coroutine");
 		{
 #ifdef __ENABLE_SHARE_STACK__
@@ -130,7 +152,7 @@ namespace acs
 			data->Add("wait", this->GetWaitCount());
 			data->Add("pool", this->mObjectPool.size());
 			data->Add("count", this->mCoroutines.size());
-			data->Add("memory", fmt::format("{:.2f}MB", (double)memory / MB));
+			data->Add("memory", help::com::BytesToString(memory));
 		}
 	}
 
@@ -145,7 +167,18 @@ namespace acs
 		return this->YieldCoroutine();
 	}
 
-	bool CoroutineComponent::SetTimeout(unsigned int timeout)
+	bool CoroutineComponent::WaitNextFrame()
+	{
+		if(this->mRunContext == nullptr)
+		{
+			return false;
+		}
+		this->mLastQueues.emplace(this->mRunContext->id);
+		this->YieldCoroutine();
+		return true;
+	}
+
+	bool CoroutineComponent::SetTimeout(int timeout)
 	{
 		if(this->mRunContext == nullptr)
 		{
@@ -199,15 +232,19 @@ namespace acs
 		this->mRunContext = nullptr;
 	}
 
-	bool CoroutineComponent::YieldCoroutine() noexcept
+	bool CoroutineComponent::YieldCoroutine()
 	{
 		assert(this->mRunContext);
+		if(this->mRunContext == nullptr)
+		{
+			return false;
+		}
 		this->mRunContext->status = CorState::Suspend;
 		tb_context_jump(this->mMainContext, this->mRunContext);
 		return true;
 	}
 
-	void CoroutineComponent::Resume(unsigned int id) noexcept
+	void CoroutineComponent::Resume(unsigned int id)
 	{
 		TaskContext* coroutine = this->Get(id);
 		if (coroutine == nullptr)
@@ -223,7 +260,7 @@ namespace acs
 		LOG_FATAL("coroutine id:{} status:{}", id, (int)coroutine->status);
 	}
 
-	unsigned int CoroutineComponent::Invoke(std::unique_ptr<StaticMethod> func)
+	unsigned int CoroutineComponent::Invoke(std::unique_ptr<StaticMethod> & func)
 	{
 		//assert(this->mApp->IsMain());
 		std::unique_ptr<TaskContext> coroutine;
@@ -237,11 +274,8 @@ namespace acs
 			coroutine = std::make_unique<TaskContext>();
 #ifndef __ENABLE_SHARE_STACK__
 			coroutine->stack.size = this->mConfig.stack;
-#ifndef __OS_WIN__
-			void * ptr = mmap(nullptr, coroutine->stack.size,
-					PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-			assert(ptr != MAP_FAILED);
-			coroutine->stack.p = (char*)ptr;
+#ifdef __ENABLE_MI_MALLOC__
+			coroutine->stack.p =  (char*)mi_malloc(this->mConfig.stack);
 #else
 			coroutine->stack.p =  (char*)std::malloc(this->mConfig.stack);
 #endif
@@ -283,7 +317,7 @@ namespace acs
 		return coroutineId;
 	}
 
-	bool CoroutineComponent::YieldCoroutine(unsigned int& coroutineId) noexcept
+	bool CoroutineComponent::YieldCoroutine(unsigned int& coroutineId)
 	{
 		if (this->mRunContext != nullptr)
 		{
@@ -308,7 +342,11 @@ namespace acs
 		ptrdiff_t size = (top - (const char*)coroutine->ctx);
 		if (coroutine->stack.size < size)
 		{
-			void* newPtr = std::realloc(coroutine->stack.p, size);
+#ifdef __ENABLE_MI_MALLOC__
+			void* newPtr = mi_realloc(coroutine->stack.p, size);
+#else
+			void* newPtr = realloc(coroutine->stack.p, size);
+#endif
 			if (newPtr == nullptr)
 			{
 				LOG_ERROR("alloc memory:{} is null", size);
@@ -320,7 +358,7 @@ namespace acs
 		std::memcpy(coroutine->stack.p, coroutine->ctx, size);
 	}
 #endif
-	void CoroutineComponent::OnSystemUpdate() noexcept
+	void CoroutineComponent::OnSystemUpdate(long long now)
 	{
 		while(!this->mResumeContexts.empty())
 		{
@@ -337,7 +375,7 @@ namespace acs
 		}
 	}
 
-	void CoroutineComponent::OnLastFrameUpdate(long long) noexcept
+	void CoroutineComponent::OnLastFrameUpdate()
 	{
 		while (!this->mLastQueues.empty())
 		{
@@ -375,7 +413,7 @@ namespace acs
 		return true;
 	}
 
-	TaskContext* CoroutineComponent::Get(unsigned int id)
+	TaskContext* CoroutineComponent::Get(unsigned int id) noexcept
 	{
 		auto iter = this->mCoroutines.find(id);
 		return iter != this->mCoroutines.end() ? iter->second.get(): nullptr;

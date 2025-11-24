@@ -8,7 +8,7 @@
 namespace http
 {
 	Client::Client(Component* httpComponent, Asio::Context & io)
-			: tcp::Client(0), mComponent(httpComponent), mMainContext(io)
+			: tcp::Client(1024), mComponent(httpComponent), mMainContext(io)
 	{
 		this->mSockId = 0;
 	}
@@ -80,8 +80,8 @@ namespace http
 					break;
 				case tcp::read::some:
 				{
-					size_t count = 0;
-					if (this->mSocket->CanRecvCount(count) && count > 0)
+					size_t count = this->mSocket->CanRecvCount();
+					if (count > 0)
 					{
 						flag = this->RecvSync(count, size);
 						break;
@@ -103,17 +103,12 @@ namespace http
 	{
 		if (code.value() != Asio::OK)
 		{
-//			if(count <= 3)
-//			{
-//				this->Connect(3);
-//				return;
-//			}
 			this->OnComplete(HttpStatus::SERVICE_UNAVAILABLE);
 		}
 		else
 		{
 			this->StopTimer();
-			if (this->mRequest->Header().KeepAlive())
+			if (this->mRequest->Header().IsKeepAlive())
 			{
 				this->mSocket->SetOption(tcp::OptionType::KeepAlive, true);
 			}
@@ -175,6 +170,11 @@ namespace http
 		else if(code == asio::error::timed_out)
 		{
 			status = HttpStatus::REQUEST_TIMEOUT;
+		}
+		if(this->mRecvBuffer.size() > 0)
+		{
+			std::istream steam(&this->mRecvBuffer);
+			this->OnReceiveMessage(steam, this->mRecvBuffer.size(), code);
 		}
 		this->OnComplete(status);
 	}

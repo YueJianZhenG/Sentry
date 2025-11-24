@@ -1,7 +1,7 @@
 {
     "notify" : {
-        "wx" : "微信通知的url",
-        "ding" : "钉钉通知的url"
+        "wx" : "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=b60ac551-33e3-492f-8378-9fff4aaaf782",
+        "ding" : "https://oapi.dingtalk.com/robot/send?access_token=967a15b4afb30c8dab81955c460f9b67a77c4f63437564912d78df055f4a19d9"
     },
     "listen" : {
         "rpc" : {
@@ -10,10 +10,10 @@
         },
         "ws" : {
             "address": "tcp://127.0.0.1:${ws}",
-            "component" : "InnerWebSocketComponent"
+            "component" : "InnerWsComponent"
         },
         "gate" : {
-            "component" : "OuterWebSocketComponent",
+            "component" : "OuterTcpComponent",
             "address": "tcp://127.0.0.1:${gate}"
         },
         "http" : {
@@ -23,16 +23,16 @@
         "https" : {
             "component" : "HttpWebComponent",
             "address": "https://127.0.0.1:${https}",
-            "key": "",
-            "cert": ""
+            "key": "${WORK_DIR}/ssl/huwai.pro.key",
+            "cert": "${WORK_DIR}/ssl/huwai.pro_bundle.pem"
         },
         "udp" : {
-            "component" : "UdpComponent",
+            "component" : "OuterUdpComponent",
             "address": "udp://127.0.0.1:${udp}"
         },
         "kcp" : {
-            "port": "udp://127.0.0.1:${kcp}",
-            "component" : "KcpComponent"
+            "component" : "OuterKcpComponent",
+            "address": "udp://127.0.0.1:${kcp}"
         },
         "telnet" : {
             "max_conn" : 10,
@@ -46,26 +46,23 @@
     },
     "thread" : {
         "count" : 2,
-        "monitor" : 0
+        "monitor" : 10
+    },
+    "coroutine" : {
+        "pool" : 100,
+        "stack" : 64,
+        "share" : 512
     },
     "core": {
-        "fps": 60,
         "event": 500,
         "name": "test",
         "host" : "127.0.0.1",
         "start" : "2025-01-01 00:00:00",
-        "secret" : ""
+        "secret" : "4437c3f2f3ec17e796467fa1b3288f9b"
     },
     "master": {
         "auth": true,
         "host" : "http://127.0.0.1:7777"
-    },
-    "oss": {
-        "bucket": "",
-        "region": "",
-        "key": "",
-        "secret": "",
-        "host" : ""
     },
     "pb" : {
         "path" : "${WORK_DIR}/proto",
@@ -74,6 +71,7 @@
         ]
     },
     "path": {
+        "res" : "${WORK_DIR}/www/res",
         "backup" : "${WORK_DIR}/mongo",
         "lang" : "${WORK_DIR}/config/lang/lang.csv",
         "vip": "${WORK_DIR}/config/card/vip.json",
@@ -96,9 +94,6 @@
         "modules" : [],
         "main" : "${lua}"
     },
-    "ssl": {
-        "pem": "${WORK_DIR}/ssl/ca.pem"
-    },
     "whcbqhn": {
         "app_id": "",
         "app_secret" : ""
@@ -107,5 +102,13 @@
         "shop": "",
         "md5_key": "",
         "callback_key": ""
+    },
+    "pay_7xf" : {
+        "pid": 0,
+        "md5": "",
+        "notify_url": "",
+        "return_url": "",
+        "public_key": "",
+        "private_key": ""
     }
 }

@@ -1,13 +1,12 @@
 
 #pragma once
 
-#include<cstring>
-#include<typeinfo>
-#include"CtorFunction.h"
-#include"ClassMateProxy.h"
-#include"MemberFuncProxy.h"
-#include"StaticFuncProxy.h"
-#include "ValueProxy.h"
+#include <cstring>
+#include "CtorFunction.h"
+#include "ClassMateProxy.h"
+#include "MemberFuncProxy.h"
+#include "MemberProxy.h"
+#include "StaticFuncProxy.h"
 namespace Lua
 {
 	class ClassProxyHelper
@@ -65,16 +64,10 @@ namespace Lua
 	template<typename T, typename V>
 	void ClassProxyHelper::PushMemberField(const char* name, V T::*member)
 	{
-		typedef V T::*Member;
 		lua_getglobal(this->mLua, this->mName.c_str());
 		if (lua_istable(this->mLua, -1))
 		{
-			char buff[100] = { 0 };
-			sprintf(buff, "get_%s", name);
-			lua_pushstring(this->mLua, buff);
-			new(lua_newuserdata(this->mLua, sizeof(Member))) Member(member);
-			lua_pushcclosure(this->mLua, ValueProxy<T, V>::Get, 1);
-			lua_settable(this->mLua, -3);
+			lua::ClassFactory<T>::members.emplace(name, new lua::MemberProxy<T, V>(member));
 		}
 		lua_pop(this->mLua, 1);
 	}
@@ -95,17 +88,16 @@ namespace Lua
 	template<typename T, typename Base>
 	inline void ClassProxyHelper::PushBaseClass()
 	{
-		if (!ClassNameProxy::HasRegisterClass<Base>())
-		{
-			printf("[Lua Error] : The parent class is not registered %s\n", typeid(Base).name());
-			return;
-		}
 		if (!std::is_base_of<Base, T>::value)
 		{
 			printf("[Lua Error] : T Is not a subclass %s\n", typeid(Base).name());
 			return;
 		}
-		ClassNameProxy::OnPushParent<T, Base>();
+		const std::string & className = lua::ClassFactory<Base>::name;
+		if(!className.empty())
+		{
+			lua::ClassFactory<T>::parents.push_back(className);
+		}
 	}
 
 	template<typename T>
@@ -117,7 +109,11 @@ namespace Lua
 			lua_newtable(this->mLua);
 			{
 				lua_pushstring(this->mLua, "__index");
-				lua_pushcclosure(this->mLua, ClassMateProxy::OnMateTableGet<T>, 0);
+				lua_pushcclosure(this->mLua, ClassMateProxy::GetIndex<T>, 0);
+				lua_rawset(this->mLua, -3);
+
+				lua_pushstring(this->mLua, "__newindex");
+				lua_pushcclosure(this->mLua, ClassMateProxy::NewIndex<T>, 0);
 				lua_rawset(this->mLua, -3);
 
 				lua_pushstring(this->mLua, "__gc");
@@ -131,7 +127,12 @@ namespace Lua
 			}
 			lua_setglobal(this->mLua, this->mName.c_str());
 		}
-		ClassNameProxy::OnClassRegister<T>(this->mName);
+		lua::ClassFactory<T>::name = this->mName;
+		lua::ClassFactory<T&>::name = this->mName;
+		lua::ClassFactory<T *>::name = this->mName;
+		lua::ClassFactory<const T>::name = this->mName;
+		lua::ClassFactory<const T&>::name = this->mName;
+		lua::ClassFactory<const T *>::name = this->mName;
 	}
 
 	inline void ClassProxyHelper::PushExtensionFunction(const char* funcName, lua_CFunction func)
@@ -149,9 +150,9 @@ namespace Lua
 	template<typename T, typename Ret, typename ... Args>
 	void ClassProxyHelper::PushMemberFunction(const char* name, Ret(T::*func)(Args ...))
 	{
-		const char* className = ClassNameProxy::GetLuaClassName<T>();
+		const std::string & className = lua::ClassFactory<T>::name;
 		typedef Ret(T::*MemberFunctionType)(Args ...);
-		lua_getglobal(this->mLua, className);
+		lua_getglobal(this->mLua, className.c_str());
 		if (lua_istable(this->mLua, -1))
 		{
 			lua_pushstring(this->mLua, name);
@@ -165,9 +166,9 @@ namespace Lua
 	template<typename T, typename Ret, typename ...Args>
 	inline void ClassProxyHelper::PushMemberFunction(const char* name, Ret(T::* func)(Args...) const)
 	{
-		const char* className = ClassNameProxy::GetLuaClassName<T>();
+		const std::string & className = lua::ClassFactory<T>::name;
 		typedef Ret(T::*MemberFunctionType)(Args ...) const;
-		lua_getglobal(this->mLua, className);
+		lua_getglobal(this->mLua, className.c_str());
 		if (lua_istable(this->mLua, -1))
 		{
 			lua_pushstring(this->mLua, name);
@@ -181,9 +182,9 @@ namespace Lua
 	template<typename T, typename BC, typename Ret, typename ...Args>
 	inline void ClassProxyHelper::PushBaseMemberFunction(const char* name, Ret(BC::* func)(Args...))
 	{
-		const char* className = ClassNameProxy::GetLuaClassName<T>();
+		const std::string & className = lua::ClassFactory<T>::name;
 		typedef Ret(BC::*MemberFunctionType)(Args ...);
-		lua_getglobal(this->mLua, className);
+		lua_getglobal(this->mLua, className.c_str());
 		if (lua_istable(this->mLua, -1))
 		{
 			lua_pushstring(this->mLua, name);

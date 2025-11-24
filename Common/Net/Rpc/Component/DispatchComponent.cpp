@@ -1,21 +1,18 @@
-﻿#include"DispatchComponent.h"
-
-#include"Async/Component/CoroutineComponent.h"
-#include"Rpc/Config/ServiceConfig.h"
-#include"Timer/Timer/ElapsedTimer.h"
-
+﻿#include "DispatchComponent.h"
+#include "Rpc/Config/ServiceConfig.h"
+#include "Timer/Timer/ElapsedTimer.h"
 #ifdef __DEBUG__
-#include"Proto/Component/ProtoComponent.h"
+#include "Proto/Component/ProtoComponent.h"
 #endif
+#include "Async/Component/CoroutineComponent.h"
 
-#include"XCode/XCode.h"
-#include"Entity/Actor/App.h"
-#include"Rpc/Common/Message.h"
-#include"Rpc/Service/RpcService.h"
-#include"Router/Component/RouterComponent.h"
-
-#include"Core/System/System.h"
+#include "XCode/XCode.h"
+#include "Entity/Actor/App.h"
+#include "Rpc/Common/Message.h"
+#include "Core/System/System.h"
+#include "Rpc/Service/RpcService.h"
 #include "Server/Config/CodeConfig.h"
+#include "Router/Component/RouterComponent.h"
 
 namespace acs
 {
@@ -52,30 +49,58 @@ namespace acs
 		}
 	}
 
-	int DispatchComponent::OnRequest(std::unique_ptr<rpc::Message> & message) noexcept
+	int DispatchComponent::OnRequest(std::unique_ptr<rpc::Message> & message)
 	{
 		++this->mSumCount;
 		int code = XCode::Ok;
-		const std::string& fullName = message->ConstHead().GetStr(rpc::Header::func);
-		const RpcMethodConfig* methodConfig = RpcConfig::Inst()->GetMethodConfig(fullName);
-
+		std::string fullName;
+		const RpcMethodConfig* methodConfig = nullptr;
+		const rpc::Head & parameter = message->ConstHead();
+		if(message->MsgType() == rpc::msg::opcode)
+		{
+			unsigned short opcode = message->GetOpcode();
+			methodConfig = RpcConfig::Inst()->GetMethodConfig(opcode);
+			if(methodConfig != nullptr)
+			{
+				fullName = methodConfig->fullname;
+			}
+		}
+		else
+		{
+			parameter.Get(rpc::Header::func, fullName);
+			methodConfig = RpcConfig::Inst()->GetMethodConfig(fullName);
+		}
 		do
 		{
 			if (methodConfig == nullptr)
 			{
+				LOG_ERROR("not find rpc method => {}", fullName)
 				code = XCode::CallFunctionNotExist;
 				break;
 			}
-//#ifdef __DEBUG__
-//			std::string fromAddress = "unknown";
-//			message->TempHead().Del(rpc::Header::from_addr, fromAddress);
-//			LOG_DEBUG("[{}://{}] call ({})", methodConfig->NetName, fromAddress, methodConfig->FullName);
-//#endif
+			if(!methodConfig->open)
+			{
+				code = XCode::CallFunctionNotExist;
+				break;
+			}
+			if(message->GetSource() == rpc::source::client)
+			{
+				if(!methodConfig->client)
+				{
+					code = XCode::PermissionDenied;
+					break;
+				}
+				if(!parameter.Has(rpc::Header::id))
+				{
+					code = XCode::PermissionDenied;
+					break;
+				}
+			}
+
 			//LOG_DEBUG("call ({}) by {}", fullName, methodConfig->NetName);
 			if (!this->mRpcServices.Has(methodConfig->service))
 			{
 				code = XCode::CallServiceNotFound;
-				LOG_ERROR("call [{}] not exist", methodConfig->service);
 				break;
 			}
 			if (!methodConfig->async)
@@ -89,13 +114,17 @@ namespace acs
 		while (false);
 		if(code != XCode::Ok)
 		{
+#ifdef __DEBUG__
+			const std::string & desc = CodeConfig::Inst()->GetDesc(code);
+			LOG_DEBUG("[{}] => {}", fullName, desc);
+#endif
 			int id = message->SockId();
 			this->mRouter->Send(id, code, message);
 		}
 		return code;
 	}
 
-	void DispatchComponent::Invoke(const RpcMethodConfig* config, std::unique_ptr<rpc::Message> & message) noexcept
+	void DispatchComponent::Invoke(const RpcMethodConfig* config, std::unique_ptr<rpc::Message> & message)
 	{
 		++this->mWaitCount;
 		int code = XCode::Ok;
@@ -112,18 +141,29 @@ namespace acs
 				LOG_ERROR("call {} server not found", config->fullname);
 				break;
 			}
-			code = logicService->Invoke(config, message);
+			try
+			{
+				code = logicService->Invoke(config, message);
+			}
+			catch(const std::exception & e)
+			{
+				code = XCode::ThrowError;
+				message->SetError(e.what());
+				LOG_ERROR("call rpc [{}] => {}", config->fullname, e.what());
+			}
+			catch(...)
+			{
+				code = XCode::ThrowError;
+				message->SetError("unknown exception error");
+				LOG_ERROR("call rpc [{}] => unknown exception error", config->fullname);
+			}
 		} while (false);
 #ifdef __DEBUG__
 		long long t = help::Time::NowMil() - start;
-		if (code != XCode::Ok)
+		//if (code != XCode::Ok)
 		{
 			const std::string& desc = CodeConfig::Inst()->GetDesc(code);
-			LOG_WARN("({}ms) invoke [{}] code:{} = {}", t, config->fullname, code, desc);
-		}
-		if (config->timeout > 0 && t >= config->timeout)
-		{
-			LOG_WARN("({}ms) invoke [{}] too long time", t, config->fullname);
+			LOG_BY_NAME("rpc", "({}ms) call rpc [{}] code:{} = {}", t, config->fullname, code, desc);
 		}
 #endif
 		--this->mWaitCount;
@@ -140,9 +180,9 @@ namespace acs
 		}
 	}
 
-	int DispatchComponent::OnMessage(std::unique_ptr<rpc::Message> & message) noexcept
+	int DispatchComponent::OnMessage(std::unique_ptr<rpc::Message> & message)
 	{
-		assert(this->mApp->IsMainThread());
+
 		switch (message->GetType())
 		{
 			case rpc::type::request:
@@ -154,13 +194,16 @@ namespace acs
 					if (this->mGateSender != nullptr)
 					{
 						int socketId = 0;
-						message->GetHead().Get(rpc::Header::sock_id, socketId);
-						this->mGateSender->Send(socketId, message);
+						rpc::Head & parameter = message->GetHead();
+						if(parameter.Get(rpc::Header::sock_id, socketId))
+						{
+							this->mGateSender->Send(socketId, message);
+						}
 						return XCode::Ok;
 					}
 				}
 				int rpcId = message->GetRpcId();
-				this->OnResponse(rpcId, std::move(message));
+				this->OnResponse(rpcId, message);
 				return XCode::Ok;
 			}
 			case rpc::type::client:

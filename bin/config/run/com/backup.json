@@ -11,26 +11,12 @@
 			"activity_list",
 			"user_info_list",
 			"activity_data_list"
-		],
-		"oss": {
-			"proto" : "https",
-			"bucket": "yy-mongo-backup",
-			"region": "oss-rg-china-mainland",
-			"key": "",
-			"secret": ""
-		}
+		]
 	},
 	"mysql.backup" : {
 		"path" : "${WORK_DIR}/mysql",
 		"collections" : [
 			"user_info_list"
-		],
-		"oss": {
-			"proto" : "https",
-			"bucket": "yy-mongo-backup",
-			"region": "",
-			"key": "",
-			"secret": ""
-		}
+		]
 	}
 }

@@ -12,7 +12,7 @@ namespace lua
 	void Log::Error(lua_State * lua)
 	{
 		size_t size = 0;
-		const char * str = lua_tolstring(lua, -1, &size);
+		const char * str = luaL_checklstring(lua, -1, &size);
 		std::unique_ptr<custom::LogInfo> logInfo = std::make_unique<custom::LogInfo>();
 		{
 			if(str != nullptr && size > 0)
@@ -37,26 +37,47 @@ namespace lua
 			}
 			logInfo->Level = custom::LogLevel::Error;
 		}
-		Debug::Log(std::move(logInfo));
+		Debug::Log(logInfo);
 	}
 
 	int Log::Output(lua_State* lua)
 	{
+		size_t size = 0;
+		int type = (int)luaL_checkinteger(lua, 1);
+		const char* log = luaL_checklstring(lua, 2, &size);
+
 		lua_Debug luaDebug;
 		std::unique_ptr<custom::LogInfo> logInfo = std::make_unique<custom::LogInfo>();
-		if(lua_getstack(lua, 2, &luaDebug) > 0)
+		if (lua_getstack(lua, 2, &luaDebug) > 0)
 		{
 			lua_getinfo(lua, "Sl", &luaDebug); // 获取当前函数名和行号等信息
 			logInfo->File = FormatFileLine(luaDebug.short_src, luaDebug.currentline);
 		}
-		size_t size = 0;
-		int type = (int)luaL_checkinteger(lua, 1);
+
+		logInfo->Level = (custom::LogLevel)type;
+		logInfo->Content.append(log, size);
+		Debug::Log(logInfo);
+		return 0;
+	}
+
+	int Log::Custom(lua_State* L)
+	{
+		static std::string name;
+		size_t size = 0, count = 0;
+		const char * str1 = luaL_checklstring(L, 1, &count);
+		const char* log = luaL_checklstring(L, 2, &size);
+
+		lua_Debug luaDebug;
+		std::unique_ptr<custom::LogInfo> logInfo = std::make_unique<custom::LogInfo>();
+		if (lua_getstack(L, 2, &luaDebug) > 0)
 		{
-			logInfo->Level = (custom::LogLevel)type;
-			const char* log = luaL_checklstring(lua, 2, &size);
-			logInfo->Content.append(log, size);
+			lua_getinfo(L, "Sl", &luaDebug); // 获取当前函数名和行号等信息
+			logInfo->File = FormatFileLine(luaDebug.short_src, luaDebug.currentline);
 		}
-		Debug::Log(std::move(logInfo));
+		name.assign(str1, count);
+		logInfo->Level = custom::LogLevel::None;
+		logInfo->Content.append(log, size);
+		Debug::Log(name, logInfo);
 		return 0;
 	}
 
@@ -68,20 +89,21 @@ namespace lua
 
 	int Console::Show(lua_State* lua)
 	{
+		size_t size = 0;
+		int type = (int)luaL_checkinteger(lua, 1);
+		const char* log = luaL_checklstring(lua, 2, &size);
+
 		lua_Debug luaDebug;
 		custom::LogInfo logInfo;
-		if(lua_getstack(lua, 2, &luaDebug) > 0)
+		if (lua_getstack(lua, 2, &luaDebug) > 0)
 		{
 			lua_getinfo(lua, "nSlu", &luaDebug); // 获取当前函数名和行号等信息
 			logInfo.File = FormatFileLine(luaDebug.short_src, luaDebug.currentline);
 		}
-		size_t size = 0;
-		int type = (int)luaL_checkinteger(lua, 1);
-		{
-			logInfo.Level = (custom::LogLevel)type;
-			const char* log = luaL_checklstring(lua, 2, &size);
-			logInfo.Content.append(log, size);
-		}
+
+
+		logInfo.Level = (custom::LogLevel)type;
+		logInfo.Content.append(log, size);
 		Debug::Console(logInfo);
 		return 0;
 	}

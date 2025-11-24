@@ -9,11 +9,61 @@
 #include "Yyjson/Lua/ljson.h"
 constexpr const char* LOCAL_DATA = "local_data";
 
+#ifdef __ENABLE_MI_MALLOC__
+#include "mimalloc.h"
+namespace sqlite
+{
+	inline void* malloc(int size)
+	{
+		return mi_malloc(size);
+	}
+
+	inline void free(void* p)
+	{
+		mi_free(p);
+	}
+
+	inline void* realloc(void* p, int size)
+	{
+		return mi_realloc(p, size);
+	}
+
+	inline int mi_size(void* p)
+	{
+		return (int)mi_usable_size(p);
+	}
+
+	inline int mi_roundup(int size)
+	{
+		return size;
+	}
+
+	inline int m_init(void*)
+	{
+		return 0;
+	}
+
+	sqlite3_mem_methods methods = {
+			malloc,
+			free,
+			realloc,
+			mi_size,
+			mi_roundup,
+			m_init,
+			nullptr,
+			nullptr,
+	};
+}
+
+#endif
+
 namespace acs
 {
     SqliteComponent::SqliteComponent()
         : mDatabase(nullptr)
     {
+		this->mSum = 0;
+    	sql::RegisterObject();
         REGISTER_JSON_CLASS_FIELD(sqlite::Config, table);
         REGISTER_JSON_CLASS_MUST_FIELD(sqlite::Config, file);
         REGISTER_JSON_CLASS_MUST_FIELD(sqlite::Config, mode);
@@ -21,15 +71,14 @@ namespace acs
 
     bool SqliteComponent::Awake()
     {
-        LuaCCModuleRegister::Add([](Lua::CCModule& ccModule)
-        {
+        LuaCCModuleRegister::Add([](Lua::CCModule& ccModule) {
             ccModule.Open("db.sqlite", lua::lib::luaopen_lsqlitedb);
         });
         LOG_CHECK_RET_FALSE(ServerConfig::Inst()->Get("sqlite", this->mConfig));
-        return true;
+        return this->Init();
     }
 
-    bool SqliteComponent::LateAwake()
+    bool SqliteComponent::Init()
     {
 		const std::string & file = this->mConfig.file;
 		if(this->mConfig.mode != "memory")
@@ -40,6 +89,16 @@ namespace acs
 				help::dir::MakeDir(dir);
 			}
 		}
+#ifdef __ENABLE_MI_MALLOC__
+		if(sqlite3_config(SQLITE_CONFIG_MALLOC, &sqlite::methods) != SQLITE_OK)
+		{
+			return false;
+		}
+		if(sqlite3_initialize() != SQLITE_OK)
+		{
+			return false;
+		}
+#endif
 		const std::string & mode = this->mConfig.mode;
 		const std::string url = fmt::format("file:{}?mode={}", file, mode);
 		int flag = SQLITE_OPEN_URI | SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE;
@@ -67,8 +126,13 @@ namespace acs
 
 	bool SqliteComponent::Build(const std::string& name, const std::string& sql)
 	{
+		return this->Build(name, sql.c_str(), sql.size());
+	}
+
+	bool SqliteComponent::Build(const std::string& name, const char* sql, size_t size)
+	{
 		sqlite3_stmt* stmt = nullptr;
-		int code = sqlite3_prepare_v2(this->mDatabase, sql.c_str(), sql.size(), &stmt, nullptr);
+		int code = sqlite3_prepare_v2(this->mDatabase, sql, size, &stmt, nullptr);
 		if (code != SQLITE_OK)
 		{
 			LOG_ERROR("[build sql] {}", sql);
@@ -121,8 +185,8 @@ namespace acs
 					sqlFactory.NotNull();
 				}
 				sqlFactory.Default(fieldInfo.default_val);
-				const std::string sql = sqlFactory.ToString();
-				std::unique_ptr<sqlite::Response> sqliteResponse = this->Run(sql);
+				const std::string sql1 = sqlFactory.ToString();
+				std::unique_ptr<sqlite::Response> sqliteResponse = this->Run(sql1);
 
 				if(sqliteResponse->ok)
 				{
@@ -184,9 +248,9 @@ namespace acs
 		for(const std::string & field : indexes)
 		{
 			sqlFactory.GetTable(name).SetIndex(field, false);
-			const std::string sql = sqlFactory.ToString();
-			std::unique_ptr<sqlite::Response> response = this->Run(sql.c_str(), sql.size());
-			if(response->ok)
+			const std::string sql1 = sqlFactory.ToString();
+			std::unique_ptr<sqlite::Response> response1 = this->Run(sql1.c_str(), sql1.size());
+			if(response1->ok)
 			{
 				LOG_INFO("[{}] create pgsql index [{}] ok", name, field);
 			}
@@ -247,7 +311,7 @@ namespace acs
 					timer::ElapsedTimer timer1;
 					if (this->InitTable(tab, mysqlTable))
 					{
-						LOG_DEBUG("[{}ms] init sqlite table [{}] ok", timer1.GetMs(), tab);
+						LOG_BY_NAME("sqlite", "[{}ms] init sqlite table [{}] ok", timer1.GetMs(), tab);
 					}
 				}
 			}
@@ -279,6 +343,15 @@ namespace acs
 		this->mStmtInfos.clear();
         sqlite3_close(this->mDatabase);
     }
+
+	void SqliteComponent::OnRecord(json::w::Document& document)
+	{
+		std::unique_ptr<json::w::Value> jsonValue = document.AddObject("sqlite");
+		{
+			jsonValue->Add("sum", this->mSum);
+			jsonValue->Add("stmt", this->mStmtInfos.size());
+		}
+	}
 
 	bool SqliteComponent::Insert(const char* tab, json::w::Value& document)
 	{
@@ -346,12 +419,14 @@ namespace acs
 
     bool SqliteComponent::Del(const std::string& key)
     {
-		return this->Invoke("local_data_delete", key)->ok;
+		static std::string func("local_data_delete");
+		return this->Invoke(func, key)->ok;
     }
 
     bool SqliteComponent::Get(const std::string& key, std::string& value)
     {
-		std::unique_ptr<sqlite::Response> response = this->Invoke("local_data_select", key);
+		static std::string func("local_data_select");
+		std::unique_ptr<sqlite::Response> response = this->Invoke(func, key);
 		if(!response->ok || response->result.empty())
 		{
 			return false;
@@ -372,7 +447,8 @@ namespace acs
 
 	bool SqliteComponent::Get(const std::string& key, json::r::Document& value)
 	{
-		std::unique_ptr<sqlite::Response> response = this->Invoke("local_data_select", key);
+		static std::string func("local_data_select");
+		std::unique_ptr<sqlite::Response> response = this->Invoke(func, key);
 		if(!response->ok || response->result.empty())
 		{
 			return false;
@@ -400,7 +476,8 @@ namespace acs
     bool SqliteComponent::Set(const std::string& key, const std::string& value)
     {
 		long long nowTime = help::Time::NowSec();
-		std::unique_ptr<sqlite::Response> response = this->Invoke("local_data_update", value, nowTime, key);
+		static std::string func("local_data_update");
+		std::unique_ptr<sqlite::Response> response = this->Invoke(func, value, nowTime, key);
 		if(!response->ok || response->count == 0)
 		{
 			response = this->Invoke("local_data_insert", key, value, nowTime);
@@ -420,15 +497,17 @@ namespace acs
 
     bool SqliteComponent::SetTimeout(const std::string& key, int timeout)
     {
+		static std::string func("local_data_timeout");
         long long expTime = help::Time::NowSec() + timeout;
-		return this->Invoke("local_data_timeout", expTime, key)->ok;
+		return this->Invoke(func, expTime, key)->ok;
     }
 
 	std::unique_ptr<sqlite::Response> SqliteComponent::Run(sqlite3_stmt* stmt)
 	{
+		this->mSum++;
+		int code = sqlite3_step(stmt);
 		std::unique_ptr<sqlite::Response> response = std::make_unique<sqlite::Response>();
 		{
-			int code = sqlite3_step(stmt);
 			if(code < SQLITE_ROW && code != SQLITE_OK)
 			{
 				response->ok = false;
@@ -456,8 +535,8 @@ namespace acs
 						{
 							double value = sqlite3_column_double(stmt, index);
 							document.Add(key, value);
-						}
 							break;
+						}
 						case SQLITE_TEXT:
 						{
 							const char* value = (char*)sqlite3_column_text(stmt, index);
@@ -530,6 +609,7 @@ namespace acs
 			}
 			response->ok = code == SQLITE_DONE;
 		}
+		sqlite3_reset(stmt);
 		return response;
 	}
 
@@ -568,11 +648,10 @@ namespace acs
 				}
 				case LUA_TTABLE:
 				{
-					size_t count = 0;
-					std::unique_ptr<char> json;
-					if(lua::yyjson::read(L, index, json, count))
+					wrap::string<true> json;
+					if(lua::yyjson::read(L, index, json))
 					{
-						binder.Bind(json.get(), count);
+						binder.Bind(json.c_str(), json.size());
 					}
 					break;
 				}

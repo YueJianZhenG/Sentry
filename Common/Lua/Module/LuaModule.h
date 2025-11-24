@@ -3,9 +3,8 @@
 //
 
 #pragma once
-#include"XCode/XCode.h"
-#include"Lua/Engine/Function.h"
-#include"Entity/Component/IComponent.h"
+#include "XCode/XCode.h"
+#include "Lua/Engine/Function.h"
 namespace Lua
 {
 	class LuaModule
@@ -14,7 +13,7 @@ namespace Lua
 		LuaModule(lua_State* lua, std::string name, int ref);
 		~LuaModule();
 	public:
-		void OnModuleHotfix();
+		void OnHotfix();
 		const std::string & Name() const { return this->mName; }
 	public:
 		template<typename ... Args>
@@ -27,10 +26,18 @@ namespace Lua
 		bool GetMetaFunction(const std::string & name) noexcept;
 	public:
 		void SplitError(std::string & error);
-		void SetMember(const char* key, long long value);
+		template<typename T>
+		inline void SetMember(const char* key, const T & value)
+		{
+			lua_rawgeti(this->mLua, LUA_REGISTRYINDEX, this->mRef);
+			{
+				Lua::Parameter::Write(this->mLua, value);
+				lua_setfield(this->mLua, -2, key);
+			}
+		}
 		inline lua_State * GetLuaEnv() { return this->mLua;}
-		void SetMember(const char* key, const std::string & value);
 	private:
+		void InitEvent();
 		void InitModule();
 		void OnCallError(const std::string & func);
 	private:
@@ -38,6 +45,7 @@ namespace Lua
 		lua_State* mLua;
 		const std::string mName;
 		std::vector<std::string> mCaches;
+		std::array<long long, 4> mTimerID;
 	};
 
 	template<typename... Args>

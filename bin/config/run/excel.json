@@ -9,24 +9,40 @@
         "main": "Excel"
     },
     "excel": {
-        "dir": "C:\\Users\\64658\\Desktop\\project\\策划\\配置表",
+        "sheet" : true,
+        "dir": "D:/huanhu/策划/excelconfig",
         "output": [
             {
                 "type": "json",
                 "ext": ".json",
-                "path": "C:\\Users\\64658\\Desktop\\project\\策划\\tool\\json"
+                "version" : "1.1.1",
+                "path": "C:/Users/yy/Desktop/mu/config/json"
+            },
+            {
+                "type": "lua",
+                "ext": ".lua",
+                "version" : "0.0.1",
+                "path": "C:/Users/yy/Desktop/mu/config/lua"
+            },
+            {
+                "type": "cpp",
+                "ext": ".h",
+                "namespace" : "conf",
+                "path": "C:/Users/yy/Desktop/mu/config/cpp"
             },
             {
                 "type": "cs",
                 "ext": ".cs",
-                "namespace" : "ETModel",
-                "path": "C:\\Users\\64658\\Desktop\\project\\develop\\hepingzhizheng\\Assets\\_Scripts\\Framework\\Controllers\\Config\\Configmodel"
+                "namespace" : "conf",
+                "path": "C:/Users/yy/Desktop/mu/config/cs"
             }
         ],
         "ignore": [
             "@",
             "#",
-            "Sheet"
+            "//",
+            "Sheet",
+            "Pingbizi"
         ]
     }
 }
